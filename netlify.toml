@@ -1,5 +1,12 @@
 [build]
   command = "npm run build"
 
+[build.environment]
+  # Falsos positivos do scanner de segredos do Netlify: o cache do Turbopack
+  # não vai pro site publicado, e o valor de FIREBASE_PROJECT_ID coincide com
+  # o nome do pacote npm (package.json), sem ser um vazamento real.
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache/**"
+  SECRETS_SCAN_OMIT_KEYS = "FIREBASE_PROJECT_ID"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
