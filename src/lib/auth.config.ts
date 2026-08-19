@@ -7,6 +7,9 @@ import type { NextAuthConfig } from "next-auth";
  * só em auth.ts, não aqui.
  */
 export const authConfig = {
+  // Necessário fora do Vercel (Netlify, etc.): sem isso o NextAuth rejeita
+  // o host da requisição e falha com "problema com a configuração do servidor".
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [],
