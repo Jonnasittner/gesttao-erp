@@ -17,7 +17,7 @@ function caminhoLocal(chave: string) {
 
 export async function salvarAnexo(chave: string, buffer: Buffer) {
   if (NA_NETLIFY) {
-    await getStore("anexos").set(chave, buffer);
+    await getStore("anexos").set(chave, new Blob([Uint8Array.from(buffer)]));
     return;
   }
   const caminho = caminhoLocal(chave);

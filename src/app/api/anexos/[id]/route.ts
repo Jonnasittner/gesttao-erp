@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new NextResponse("Arquivo não encontrado no storage", { status: 404 });
   }
 
-  return new NextResponse(conteudo, {
+  return new NextResponse(new Blob([Uint8Array.from(conteudo)]), {
     headers: {
       "Content-Type": data.tipo || "application/octet-stream",
       "Content-Disposition": `inline; filename="${encodeURIComponent(data.nomeArquivo)}"`,
