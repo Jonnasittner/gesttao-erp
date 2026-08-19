@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EtapaInteracaoSelect } from "@/components/crm/etapa-interacao-select";
+import { ReagendarInteracao } from "@/components/crm/reagendar-interacao";
 import { listarCadastros } from "@/server/cadastros";
 import { listarInteracoes } from "@/server/crm";
 import { ETAPA_ATENDIMENTO } from "@/lib/types";
@@ -14,7 +15,7 @@ export default async function CrmPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">CRM — Funil de atendimentos</h1>
 
-      <div className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
         {ETAPA_ATENDIMENTO.map((etapa) => {
           const itens = interacoes.filter((i) => i.etapa === etapa);
           return (
@@ -43,6 +44,11 @@ export default async function CrmPage() {
                         </p>
                       )}
                       <EtapaInteracaoSelect id={interacao.id} etapa={interacao.etapa} />
+                      <ReagendarInteracao
+                        interacaoId={interacao.id}
+                        cadastroId={interacao.cadastroId}
+                        dataReagendamento={interacao.dataReagendamento ?? ""}
+                      />
                     </CardContent>
                   </Card>
                 ))}

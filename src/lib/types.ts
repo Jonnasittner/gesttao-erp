@@ -16,6 +16,7 @@ export const ETAPA_ATENDIMENTO = [
   "PROPOSTA",
   "GANHO",
   "PERDIDO",
+  "FINALIZADO",
 ] as const;
 export type EtapaAtendimento = (typeof ETAPA_ATENDIMENTO)[number];
 

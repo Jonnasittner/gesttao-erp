@@ -40,4 +40,5 @@ export const ROTULOS_ETAPA_ATENDIMENTO: Record<(typeof ETAPA_ATENDIMENTO)[number
   PROPOSTA: "Enviado Proposta",
   GANHO: "Pedido Feito",
   PERDIDO: "Pedido Perdido",
+  FINALIZADO: "Finalizado",
 };
