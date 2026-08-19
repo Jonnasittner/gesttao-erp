@@ -34,10 +34,10 @@ export const ROTULOS_TIPO_INTERACAO: Record<(typeof TIPO_INTERACAO)[number], str
 };
 
 export const ROTULOS_ETAPA_ATENDIMENTO: Record<(typeof ETAPA_ATENDIMENTO)[number], string> = {
-  NOVO: "Novo",
-  QUALIFICADO: "Qualificado",
-  PROPOSTA: "Proposta",
-  NEGOCIACAO: "Negociação",
-  GANHO: "Ganho",
-  PERDIDO: "Perdido",
+  NOVO: "Chamar",
+  AGUARDANDO_RETORNO: "Aguardando Retorno",
+  QUALIFICADO: "Agendado",
+  PROPOSTA: "Enviado Proposta",
+  GANHO: "Pedido Feito",
+  PERDIDO: "Pedido Perdido",
 };

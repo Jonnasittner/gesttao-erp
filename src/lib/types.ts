@@ -11,9 +11,9 @@ export type TipoInteracao = (typeof TIPO_INTERACAO)[number];
 
 export const ETAPA_ATENDIMENTO = [
   "NOVO",
+  "AGUARDANDO_RETORNO",
   "QUALIFICADO",
   "PROPOSTA",
-  "NEGOCIACAO",
   "GANHO",
   "PERDIDO",
 ] as const;
