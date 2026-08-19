@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# anexos salvos localmente em dev (fora do Netlify Blobs)
+/.data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
