@@ -2,12 +2,26 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getStore } from "@netlify/blobs";
 
-// Em produção (deploy no Netlify) o contexto do Blobs é injetado
-// automaticamente via NETLIFY_BLOBS_CONTEXT — getStore("anexos") funciona
-// sozinho, sem precisar de credenciais manuais no .env. Em dev local
-// (`next dev`, fora do Netlify) esse contexto não existe, então os
-// arquivos ficam salvos em disco em `.data/anexos` só para poder testar.
-const NA_NETLIFY = Boolean(process.env.NETLIFY_BLOBS_CONTEXT);
+// SITE_ID é injetado de forma garantida em toda função do Netlify (build e
+// runtime) — ao contrário de NETLIFY_BLOBS_CONTEXT, que em algumas versões
+// do @netlify/plugin-nextjs não chega até os Route Handlers do Next.js
+// (só as Server Actions recebem o contexto automático de forma confiável).
+// Por isso usamos SITE_ID pra detectar "estamos no Netlify" e passamos
+// siteID/token explícitos pro getStore, em vez de confiar na configuração
+// automática. NETLIFY_BLOBS_TOKEN é um Personal Access Token criado manualmente
+// em Netlify > User settings > Applications > Personal access tokens.
+const SITE_ID = process.env.SITE_ID;
+const BLOBS_TOKEN = process.env.NETLIFY_BLOBS_TOKEN;
+const NA_NETLIFY = Boolean(SITE_ID);
+
+function storeAnexos() {
+  if (SITE_ID && BLOBS_TOKEN) {
+    return getStore({ name: "anexos", siteID: SITE_ID, token: BLOBS_TOKEN });
+  }
+  // Sem token explícito: tenta a configuração automática por ambiente como
+  // último recurso (funciona em alguns contextos do Netlify).
+  return getStore("anexos");
+}
 
 const DIRETORIO_LOCAL = path.join(process.cwd(), ".data", "anexos");
 
@@ -17,7 +31,7 @@ function caminhoLocal(chave: string) {
 
 export async function salvarAnexo(chave: string, buffer: Buffer) {
   if (NA_NETLIFY) {
-    await getStore("anexos").set(chave, new Blob([Uint8Array.from(buffer)]));
+    await storeAnexos().set(chave, new Blob([Uint8Array.from(buffer)]));
     return;
   }
   const caminho = caminhoLocal(chave);
@@ -27,7 +41,7 @@ export async function salvarAnexo(chave: string, buffer: Buffer) {
 
 export async function lerAnexo(chave: string): Promise<Buffer | null> {
   if (NA_NETLIFY) {
-    const conteudo = await getStore("anexos").get(chave, { type: "arrayBuffer" });
+    const conteudo = await storeAnexos().get(chave, { type: "arrayBuffer" });
     return conteudo ? Buffer.from(conteudo) : null;
   }
   try {
@@ -49,7 +63,7 @@ export async function dataUriDoAnexo(
 
 export async function excluirArquivoAnexo(chave: string) {
   if (NA_NETLIFY) {
-    await getStore("anexos").delete(chave);
+    await storeAnexos().delete(chave);
     return;
   }
   try {
