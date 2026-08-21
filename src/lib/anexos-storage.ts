@@ -37,6 +37,16 @@ export async function lerAnexo(chave: string): Promise<Buffer | null> {
   }
 }
 
+export async function dataUriDoAnexo(
+  chave: string | undefined,
+  tipo: string | undefined
+): Promise<string | null> {
+  if (!chave) return null;
+  const conteudo = await lerAnexo(chave);
+  if (!conteudo) return null;
+  return `data:${tipo || "image/png"};base64,${conteudo.toString("base64")}`;
+}
+
 export async function excluirArquivoAnexo(chave: string) {
   if (NA_NETLIFY) {
     await getStore("anexos").delete(chave);

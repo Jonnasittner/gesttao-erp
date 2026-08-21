@@ -1,6 +1,6 @@
 import { db } from "@/lib/firebase-admin";
 
-export type ChaveContador = "cadastro_codigo" | "pedido_numero";
+export type ChaveContador = "cadastro_codigo" | "pedido_numero" | "produto_codigo_interno";
 
 /**
  * Incrementa atomicamente um contador (contadores/{chave}) e retorna o novo
@@ -17,8 +17,4 @@ export async function proximoNumero(chave: ChaveContador): Promise<number> {
     tx.set(ref, { valor: proximo }, { merge: true });
     return proximo;
   });
-}
-
-export function formatarCodigo(numero: number): string {
-  return String(numero).padStart(4, "0");
 }

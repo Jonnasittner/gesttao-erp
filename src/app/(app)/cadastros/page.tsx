@@ -10,8 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listarCadastros } from "@/server/cadastros";
-import { listarRamosAtividade } from "@/server/ramos-atividade";
-import { formatarCodigo } from "@/lib/contador";
+import { formatarCodigo } from "@/lib/codigo";
 import { TIPO_CADASTRO, type TipoCadastro } from "@/lib/types";
 import { CORES_TIPO_CADASTRO, CORES_TIPO_CADASTRO_ATIVO } from "@/lib/rotulos";
 
@@ -33,11 +32,7 @@ export default async function CadastrosPage({
 }) {
   const { tipo } = await searchParams;
   const tipoFiltro = TIPO_CADASTRO.includes(tipo as TipoCadastro) ? (tipo as TipoCadastro) : undefined;
-  const [cadastros, ramosAtividade] = await Promise.all([
-    listarCadastros(tipoFiltro),
-    listarRamosAtividade(),
-  ]);
-  const nomeRamoPorId = new Map(ramosAtividade.map((r) => [r.id, r.nome]));
+  const cadastros = await listarCadastros(tipoFiltro);
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,7 +103,7 @@ export default async function CadastrosPage({
                   </div>
                 </TableCell>
                 <TableCell>
-                  {cadastro.ramoAtividadeId ? nomeRamoPorId.get(cadastro.ramoAtividadeId) ?? "—" : "—"}
+                  {cadastro.ramoAtividade || "—"}
                 </TableCell>
                 <TableCell>{cadastro.telefone || "—"}</TableCell>
                 <TableCell>{cadastro.email || "—"}</TableCell>

@@ -37,6 +37,7 @@ export const ROTULOS_ETAPA_ATENDIMENTO: Record<(typeof ETAPA_ATENDIMENTO)[number
   NOVO: "Chamar",
   AGUARDANDO_RETORNO: "Aguardando Retorno",
   QUALIFICADO: "Agendado",
+  AG_ORCAMENTO_FABRICA: "Ag. Orç. Fábrica",
   PROPOSTA: "Enviado Proposta",
   GANHO: "Pedido Feito",
   PERDIDO: "Pedido Perdido",

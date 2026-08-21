@@ -18,6 +18,7 @@ import {
 import { atualizarInteracao } from "@/server/crm";
 import { interacaoSchema, TIPO_INTERACAO, ETAPA_ATENDIMENTO, type Interacao } from "@/lib/types";
 import { ROTULOS_ETAPA_ATENDIMENTO, ROTULOS_TIPO_INTERACAO } from "@/lib/rotulos";
+import { paraDatetimeLocal } from "@/lib/datetime";
 
 export function EditarInteracao({
   interacao,
@@ -94,8 +95,8 @@ export function EditarInteracao({
           <Input
             id={`data-${interacao.id}`}
             name="data"
-            type="date"
-            defaultValue={interacao.data.slice(0, 10)}
+            type="datetime-local"
+            defaultValue={paraDatetimeLocal(interacao.data)}
             required
           />
         </div>

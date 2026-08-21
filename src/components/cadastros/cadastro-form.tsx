@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,11 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RamoAtividadeField } from "@/components/cadastros/ramo-atividade-field";
 import { TextComboboxField } from "@/components/cadastros/text-combobox-field";
 import { atualizarCadastro, criarCadastro } from "@/server/cadastros";
 import type { SugestoesEndereco } from "@/server/enderecos";
-import { cadastroSchema, TIPO_CADASTRO, type Cadastro, type CadastroInput, type RamoAtividade } from "@/lib/types";
+import { cadastroSchema, TIPO_CADASTRO, type Cadastro, type CadastroInput } from "@/lib/types";
+import { formatarTelefone } from "@/lib/telefone";
 
 const ROTULOS_TIPO_CADASTRO: Record<(typeof TIPO_CADASTRO)[number], string> = {
   CLIENTE: "Cliente",
@@ -29,11 +29,9 @@ const ROTULOS_TIPO_CADASTRO: Record<(typeof TIPO_CADASTRO)[number], string> = {
 
 export function CadastroForm({
   cadastro,
-  ramosAtividade,
   sugestoesEndereco,
 }: {
   cadastro?: Cadastro;
-  ramosAtividade: RamoAtividade[];
   sugestoesEndereco: SugestoesEndereco;
 }) {
   const router = useRouter();
@@ -41,23 +39,39 @@ export function CadastroForm({
   const [erros, setErros] = useState<Record<string, string>>({});
   const [endereco, setEndereco] = useState(cadastro?.endereco ?? "");
   const [numero, setNumero] = useState(cadastro?.numero ?? "");
+  const [complemento, setComplemento] = useState(cadastro?.complemento ?? "");
   const [bairro, setBairro] = useState(cadastro?.bairro ?? "");
   const [cidade, setCidade] = useState(cadastro?.cidade ?? "");
+  const [estado, setEstado] = useState(cadastro?.estado ?? "");
+  const [ramoAtividade, setRamoAtividade] = useState(cadastro?.ramoAtividade ?? "");
+  const [telefone, setTelefone] = useState(formatarTelefone(cadastro?.telefone ?? ""));
+
+  // Se a cidade já foi cadastrada antes com um estado, preenche sozinho
+  // (só quando o campo Estado ainda está vazio, pra não sobrescrever uma
+  // edição manual).
+  useEffect(() => {
+    if (!cidade.trim() || estado.trim()) return;
+    const conhecido = sugestoesEndereco.estadoPorCidade[cidade.trim()];
+    if (conhecido) setEstado(conhecido);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cidade]);
 
   function handleSubmit(formData: FormData) {
     const raw: CadastroInput = {
       nome: String(formData.get("nome") ?? ""),
       documento: String(formData.get("documento") ?? ""),
-      telefone: String(formData.get("telefone") ?? ""),
+      telefone,
       email: String(formData.get("email") ?? ""),
       endereco,
       numero,
+      complemento,
       bairro,
       cidade,
+      estado,
       nomeContato: String(formData.get("nomeContato") ?? ""),
       observacaoContato: String(formData.get("observacaoContato") ?? ""),
       tipos: formData.getAll("tipos") as CadastroInput["tipos"],
-      ramoAtividadeId: String(formData.get("ramoAtividadeId") ?? ""),
+      ramoAtividade,
       status: (formData.get("status") as "ATIVO" | "INATIVO" | "") || "ATIVO",
     };
 
@@ -105,7 +119,14 @@ export function CadastroForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="telefone">Telefone</Label>
-          <Input id="telefone" name="telefone" defaultValue={cadastro?.telefone} className="uppercase" />
+          <Input
+            id="telefone"
+            name="telefone"
+            value={telefone}
+            onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
+            placeholder="(99) 9999-9999"
+            inputMode="tel"
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">E-mail</Label>
@@ -133,20 +154,37 @@ export function CadastroForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <TextComboboxField
-          id="bairro"
-          label="Bairro"
-          value={bairro}
-          onChange={setBairro}
-          suggestions={sugestoesEndereco.bairro}
-        />
+      <TextComboboxField
+        id="complemento"
+        label="Complemento"
+        value={complemento}
+        onChange={setComplemento}
+        suggestions={sugestoesEndereco.complemento}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div className="sm:col-span-2">
+          <TextComboboxField
+            id="bairro"
+            label="Bairro"
+            value={bairro}
+            onChange={setBairro}
+            suggestions={sugestoesEndereco.bairro}
+          />
+        </div>
         <TextComboboxField
           id="cidade"
           label="Cidade"
           value={cidade}
           onChange={setCidade}
           suggestions={sugestoesEndereco.cidade}
+        />
+        <TextComboboxField
+          id="estado"
+          label="Estado"
+          value={estado}
+          onChange={setEstado}
+          suggestions={sugestoesEndereco.estado}
         />
       </div>
 
@@ -183,10 +221,13 @@ export function CadastroForm({
         {erros.tipos && <p className="text-sm text-destructive">{erros.tipos}</p>}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label>Ramo de atividade</Label>
-        <RamoAtividadeField ramosIniciais={ramosAtividade} defaultValue={cadastro?.ramoAtividadeId} />
-      </div>
+      <TextComboboxField
+        id="ramoAtividade"
+        label="Ramo de atividade"
+        value={ramoAtividade}
+        onChange={setRamoAtividade}
+        suggestions={sugestoesEndereco.ramoAtividade}
+      />
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="status">Status</Label>

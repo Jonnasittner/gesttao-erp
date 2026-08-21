@@ -1,0 +1,34 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/firebase-admin";
+import { lerAnexo } from "@/lib/anexos-storage";
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user) {
+    return new NextResponse("Não autenticado", { status: 401 });
+  }
+
+  const { id } = await params;
+  const doc = await db.collection("produtos").doc(id).get();
+  if (!doc.exists) {
+    return new NextResponse("Produto não encontrado", { status: 404 });
+  }
+
+  const data = doc.data()!;
+  if (!data.imagemChave) {
+    return new NextResponse("Produto sem imagem", { status: 404 });
+  }
+
+  const conteudo = await lerAnexo(data.imagemChave);
+  if (!conteudo) {
+    return new NextResponse("Arquivo não encontrado no storage", { status: 404 });
+  }
+
+  return new NextResponse(new Blob([Uint8Array.from(conteudo)]), {
+    headers: {
+      "Content-Type": data.imagemTipo || "image/jpeg",
+      "Cache-Control": "private, max-age=3600",
+    },
+  });
+}

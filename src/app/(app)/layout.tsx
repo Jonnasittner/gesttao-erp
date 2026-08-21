@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Contact, LayoutDashboard, LogOut, ShoppingCart, Users, Wallet } from "lucide-react";
+import { Contact, LayoutDashboard, LogOut, Package, Settings, ShoppingCart, Users, Wallet } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/server/auth-actions";
@@ -7,8 +7,10 @@ import { logoutAction } from "@/server/auth-actions";
 const NAV_ITEMS = [
   { href: "/cadastros", label: "Cadastros", icon: Contact },
   { href: "/crm", label: "CRM", icon: Users },
-  { href: "/pedidos", label: "Pedidos", icon: ShoppingCart, emBreve: true },
+  { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
+  { href: "/produtos", label: "Cadastro Produtos", icon: Package },
   { href: "/financeiro", label: "Financeiro", icon: Wallet, emBreve: true },
+  { href: "/configuracoes", label: "Configurações", icon: Settings },
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
 ];
 

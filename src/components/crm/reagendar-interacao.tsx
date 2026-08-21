@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { AtalhosReagendamento } from "@/components/crm/atalhos-reagendamento";
 import { reagendarInteracao } from "@/server/crm";
+import { formatarReagendamento, temHorario } from "@/lib/datetime";
 
 export function ReagendarInteracao({
   interacaoId,
@@ -19,10 +22,18 @@ export function ReagendarInteracao({
 }) {
   const router = useRouter();
   const [editando, setEditando] = useState(false);
-  const [valor, setValor] = useState(dataReagendamento ? dataReagendamento.slice(0, 10) : "");
+  const [data, setData] = useState(dataReagendamento ? dataReagendamento.slice(0, 10) : "");
+  const [horario, setHorario] = useState(
+    dataReagendamento && temHorario(dataReagendamento) ? dataReagendamento.slice(11, 16) : ""
+  );
+  const [diaInteiro, setDiaInteiro] = useState(
+    dataReagendamento ? !temHorario(dataReagendamento) : false
+  );
   const [isPending, startTransition] = useTransition();
 
   function salvar() {
+    const valor = !data ? "" : diaInteiro || !horario ? data : `${data}T${horario}`;
+
     startTransition(async () => {
       try {
         await reagendarInteracao(interacaoId, cadastroId, valor);
@@ -37,26 +48,49 @@ export function ReagendarInteracao({
 
   if (editando) {
     return (
-      <div className="flex flex-wrap items-center gap-1">
-        <Input
-          type="date"
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          className="h-7 w-36 text-xs"
-          autoFocus
+      <div className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-1">
+          <Input
+            type="date"
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="h-7 w-36 text-xs"
+            autoFocus
+          />
+          {data && !diaInteiro && (
+            <Input
+              type="time"
+              value={horario}
+              onChange={(e) => setHorario(e.target.value)}
+              className="h-7 w-24 text-xs"
+            />
+          )}
+          {data && (
+            <label className="flex items-center gap-1 text-xs font-normal">
+              <Checkbox checked={diaInteiro} onCheckedChange={(v) => setDiaInteiro(!!v)} />
+              Dia inteiro
+            </label>
+          )}
+          <Button type="button" size="sm" className="h-7" disabled={isPending} onClick={salvar}>
+            Salvar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7"
+            onClick={() => setEditando(false)}
+          >
+            Cancelar
+          </Button>
+        </div>
+        <AtalhosReagendamento
+          onEscolher={(novaData) => {
+            setData(novaData);
+            setDiaInteiro(true);
+            setHorario("");
+          }}
         />
-        <Button type="button" size="sm" className="h-7" disabled={isPending} onClick={salvar}>
-          Salvar
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="h-7"
-          onClick={() => setEditando(false)}
-        >
-          Cancelar
-        </Button>
       </div>
     );
   }
@@ -69,7 +103,7 @@ export function ReagendarInteracao({
     >
       <CalendarClock className="h-3 w-3" />
       {dataReagendamento
-        ? `Reagendado para ${new Date(dataReagendamento).toLocaleDateString("pt-BR")}`
+        ? `Reagendado para ${formatarReagendamento(dataReagendamento)}`
         : "Reagendar atendimento"}
     </button>
   );
