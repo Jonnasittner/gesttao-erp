@@ -7,6 +7,7 @@ import { PlusIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,8 @@ import { pedidoSchema, type Produto } from "@/lib/types";
 import { formatarMoeda } from "@/lib/moeda";
 
 type ClienteOpcao = { value: string; label: string };
+
+const OBSERVACAO_PADRAO = "Prazo de Entrega de 8 a 15 dias Úteis\nGarantia de 1 Ano\nDistribuidor Autorizado Kapazi";
 
 interface ItemForm {
   chave: string;
@@ -72,6 +75,7 @@ export function NovoPedidoDialog({
   );
   const [cliente, setCliente] = useState<ClienteOpcao | null>(null);
   const [itens, setItens] = useState<ItemForm[]>([itemVazio()]);
+  const [observacao, setObservacao] = useState(OBSERVACAO_PADRAO);
 
   const total = itens.reduce(
     (soma, item) => soma + (Number(item.quantidade) || 0) * (Number(item.precoUnitario) || 0),
@@ -81,6 +85,7 @@ export function NovoPedidoDialog({
   function resetar() {
     setCliente(null);
     setItens([itemVazio()]);
+    setObservacao(OBSERVACAO_PADRAO);
   }
 
   function atualizarItem(chave: string, patch: Partial<ItemForm>) {
@@ -103,6 +108,7 @@ export function NovoPedidoDialog({
         largura: item.largura,
         precoUnitario: item.precoUnitario,
       })),
+      observacao,
     });
 
     if (!parsed.success) {
@@ -293,6 +299,17 @@ export function NovoPedidoDialog({
           <div className="flex items-center justify-between border-t pt-3 text-base font-semibold">
             <span>Total</span>
             <span>{formatarMoeda(total)}</span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="observacaoPedido">Observações</Label>
+            <Textarea
+              id="observacaoPedido"
+              rows={3}
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              className="uppercase"
+            />
           </div>
         </div>
 

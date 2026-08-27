@@ -126,6 +126,7 @@ export const pedidoSchema = z.object({
   cadastroId: z.string().min(1, "Selecione o cliente"),
   cadastroNome: z.string().trim().min(1).transform((s) => s.toUpperCase()),
   itens: z.array(itemPedidoSchema).min(1, "Adicione ao menos um produto"),
+  observacao: textoMaiusculoOpcional,
 });
 export type PedidoInput = z.infer<typeof pedidoSchema>;
 

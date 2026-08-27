@@ -14,6 +14,7 @@ function toPedido(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFiresto
     cadastroId: data.cadastroId,
     cadastroNome: data.cadastroNome,
     itens: data.itens ?? [],
+    observacao: data.observacao ?? "",
     total: data.total ?? 0,
     createdAt: data.createdAt?.toDate?.().toISOString() ?? "",
     updatedAt: data.updatedAt?.toDate?.().toISOString() ?? "",

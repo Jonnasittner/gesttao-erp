@@ -3,6 +3,19 @@ import type { Cadastro, Empresa, Pedido } from "@/lib/types";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 
+// A fonte base do PDF (Helvetica) não tem glifos de emoji/símbolos — ao
+// tentar desenhar um caractere fora do Latin-1 o layout quebra. Mantém
+// letras, números, acentuação (á, ç, õ...) e pontuação; remove o resto
+// (emoji, símbolos gráficos etc.) só na hora de gerar o PDF, sem alterar
+// o texto salvo nem o que aparece na tela do sistema.
+function textoSeguroPdf(texto: string): string {
+  return texto
+    .replace(/[^\t\n\r -ÿ]/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 9, fontFamily: "Helvetica", color: "#1a1a1a" },
   marcaDaguaContainer: {
@@ -55,6 +68,8 @@ const styles = StyleSheet.create({
   totalBloco: { marginTop: 14, alignItems: "flex-end" },
   totalLabel: { fontSize: 9, color: "#555" },
   totalValor: { fontSize: 15, fontWeight: 700 },
+  observacaoBloco: { marginTop: 16, paddingTop: 10, borderTop: "1 solid #ddd" },
+  observacaoTexto: { fontSize: 8, color: "#555", lineHeight: 1.4 },
 });
 
 function OrcamentoDocument({
@@ -160,6 +175,13 @@ function OrcamentoDocument({
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValor}>{formatarMoeda(pedido.total)}</Text>
         </View>
+
+        {pedido.observacao ? (
+          <View style={styles.observacaoBloco}>
+            <Text style={styles.secaoTitulo}>OBSERVAÇÕES</Text>
+            <Text style={styles.observacaoTexto}>{textoSeguroPdf(pedido.observacao)}</Text>
+          </View>
+        ) : null}
       </Page>
     </Document>
   );

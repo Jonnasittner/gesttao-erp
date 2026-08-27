@@ -107,6 +107,13 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         <span>Total</span>
         <span>{formatarMoeda(pedido.total)}</span>
       </div>
+
+      {pedido.observacao && (
+        <div className="rounded-lg border p-4">
+          <h2 className="mb-2 text-sm font-medium text-muted-foreground">Observações</h2>
+          <p className="text-sm whitespace-pre-line">{pedido.observacao}</p>
+        </div>
+      )}
     </div>
   );
 }
