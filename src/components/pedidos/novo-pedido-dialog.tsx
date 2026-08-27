@@ -32,7 +32,7 @@ import { formatarMoeda } from "@/lib/moeda";
 
 type ClienteOpcao = { value: string; label: string };
 
-const OBSERVACAO_PADRAO = "Prazo de Entrega de 8 a 15 dias Úteis\nGarantia de 1 Ano\nDistribuidor Autorizado Kapazi";
+const OBSERVACAO_PADRAO = "Prazo de Entrega de 8 a 15 dias Úteis\nDistribuidor Autorizado Kapazi";
 
 interface ItemForm {
   chave: string;
