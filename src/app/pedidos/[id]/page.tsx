@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, DownloadIcon } from "lucide-react";
+import { ArrowLeftIcon, DownloadIcon, PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -11,18 +12,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { buscarPedido } from "@/server/pedidos";
-import { buscarCadastro } from "@/server/cadastros";
-import { buscarProduto } from "@/server/produtos";
+import { buscarCadastro, listarCadastros } from "@/server/cadastros";
+import { buscarProduto, listarProdutos } from "@/server/produtos";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
+import { ConverterPedidoBotao } from "@/components/pedidos/converter-pedido-botao";
+import { EditarPedidoDialog } from "@/components/pedidos/editar-pedido-dialog";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
+
+import { formatarCpfCnpj } from "@/lib/documento";
 
 export default async function PedidoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const pedido = await buscarPedido(id);
   if (!pedido) notFound();
 
-  const cliente = await buscarCadastro(pedido.cadastroId);
+  const isPedido = pedido.status === "PEDIDO";
+  const codigoFormatado = formatarCodigo(pedido.numero);
+
+  const [cliente, todosClientes, todosProdutos] = await Promise.all([
+    buscarCadastro(pedido.cadastroId),
+    listarCadastros("CLIENTE"),
+    listarProdutos(),
+  ]);
+
+  const opcoesClientes = todosClientes.map((c) => ({ value: c.id, label: c.nome }));
+
   const enderecoCliente = cliente
     ? [cliente.endereco, cliente.numero, cliente.bairro, cliente.cidade, cliente.estado]
         .filter(Boolean)
@@ -45,22 +60,56 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
           >
             <ArrowLeftIcon className="size-3.5" /> Pedidos
           </Link>
-          <h1 className="text-2xl font-semibold">Orçamento {formatarCodigo(pedido.numero)}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">
+              {isPedido ? "Pedido" : "Orçamento"} {codigoFormatado}
+            </h1>
+            <Badge
+              variant="outline"
+              className={
+                isPedido
+                  ? "border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/40 dark:text-green-300"
+                  : "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+              }
+            >
+              {isPedido ? "Pedido" : "Orçamento"}
+            </Badge>
+          </div>
         </div>
-        <Button
-          nativeButton={false}
-          render={
-            <a href={`/api/pedidos/${pedido.id}/pdf`} download={`orcamento-${formatarCodigo(pedido.numero)}.pdf`}>
-              <DownloadIcon /> Baixar PDF
-            </a>
-          }
-        />
+        <div className="flex items-center gap-2">
+          <EditarPedidoDialog
+            pedido={pedido}
+            clientes={opcoesClientes}
+            produtosIniciais={todosProdutos}
+            trigger={
+              <Button type="button" variant="outline">
+                <PencilIcon /> Editar
+              </Button>
+            }
+          />
+          {!isPedido && (
+            <ConverterPedidoBotao id={pedido.id} numero={codigoFormatado} showText={true} />
+          )}
+          <Button
+            nativeButton={false}
+            render={
+              <a
+                href={`/api/pedidos/${pedido.id}/pdf`}
+                download={`${isPedido ? "pedido" : "orcamento"}-${codigoFormatado}.pdf`}
+              >
+                <DownloadIcon /> Baixar PDF
+              </a>
+            }
+          />
+        </div>
       </div>
 
       <div className="rounded-lg border p-4">
         <h2 className="mb-2 text-sm font-medium text-muted-foreground">Cliente</h2>
         <p className="font-medium">{pedido.cadastroNome}</p>
-        {cliente?.documento && <p className="text-sm text-muted-foreground">Documento: {cliente.documento}</p>}
+        {cliente?.documento && (
+          <p className="text-sm text-muted-foreground">CNPJ/CPF: {formatarCpfCnpj(cliente.documento)}</p>
+        )}
         {cliente?.telefone && <p className="text-sm text-muted-foreground">Telefone: {cliente.telefone}</p>}
         {enderecoCliente && <p className="text-sm text-muted-foreground">{enderecoCliente}</p>}
       </div>

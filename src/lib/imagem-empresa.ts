@@ -9,7 +9,9 @@ const EXTENSOES: Record<string, string> = {
   ".jpeg": "image/jpeg",
 };
 
-export async function lerImagemEmpresa(nomeBase: "logo" | "selo"): Promise<string | null> {
+export async function lerImagemEmpresa(
+  nomeBase: "logo" | "selo" | "whatsapp" | "instagram" | "site" | "email"
+): Promise<string | null> {
   for (const [extensao, tipo] of Object.entries(EXTENSOES)) {
     const caminho = path.join(process.cwd(), "public", "empresa", `${nomeBase}${extensao}`);
     try {

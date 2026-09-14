@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/lib/auth";
 
 export async function loginAction(formData: FormData) {
-  const callbackUrl = (formData.get("callbackUrl") as string) || "/";
+  const callbackUrl = (formData.get("callbackUrl") as string) || "/agendamentos";
 
   try {
     await signIn("credentials", {

@@ -122,11 +122,15 @@ export const itemPedidoSchema = z.object({
 });
 export type ItemPedidoInput = z.infer<typeof itemPedidoSchema>;
 
+export const STATUS_PEDIDO = ["ORCAMENTO", "PEDIDO"] as const;
+export type StatusPedido = (typeof STATUS_PEDIDO)[number];
+
 export const pedidoSchema = z.object({
   cadastroId: z.string().min(1, "Selecione o cliente"),
   cadastroNome: z.string().trim().min(1).transform((s) => s.toUpperCase()),
   itens: z.array(itemPedidoSchema).min(1, "Adicione ao menos um produto"),
   observacao: textoMaiusculoOpcional,
+  status: z.enum(STATUS_PEDIDO).default("ORCAMENTO"),
 });
 export type PedidoInput = z.infer<typeof pedidoSchema>;
 
@@ -134,6 +138,7 @@ export interface Pedido extends PedidoInput {
   id: string;
   numero: number;
   total: number;
+  status: StatusPedido;
   createdAt: string;
   updatedAt: string;
 }
@@ -143,9 +148,12 @@ export const empresaSchema = z.object({
   cnpj: textoMaiusculoOpcional,
   endereco: textoMaiusculoOpcional,
   telefone: textoMaiusculoOpcional,
-  email: z.string().trim().email("E-mail inválido").optional().or(z.literal("")),
-  // Sem maiúsculas (como e-mail): URL em caixa alta é incomum e não ajuda.
+  instagram: z.string().trim().optional().or(z.literal("")),
+  // Site e e-mail ficam em minúsculas/como digitados: endereço em caixa alta
+  // atrapalha a leitura e não é o padrão de URL nem de e-mail.
   site: z.string().trim().optional().or(z.literal("")),
+  email: z.string().trim().email("E-mail inválido").optional().or(z.literal("")),
+  observacaoPadraoPedido: z.string().optional().or(z.literal("")),
 });
 export type EmpresaInput = z.infer<typeof empresaSchema>;
 

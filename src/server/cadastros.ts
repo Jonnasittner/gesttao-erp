@@ -48,6 +48,26 @@ export async function buscarCadastro(id: string): Promise<Cadastro | null> {
   return toCadastro(doc);
 }
 
+/** Retorna o cadastro que já possui esse CPF/CNPJ (ignorando o próprio ID em edição). */
+export async function buscarCadastroPorDocumento(
+  documento: string,
+  ignorarId?: string,
+): Promise<Cadastro | null> {
+  const normalizado = documento.replace(/\D/g, "");
+  if (!normalizado) return null;
+
+  // Busca todos os cadastros e compara só os dígitos, pois o campo pode estar
+  // salvo com ou sem máscara dependendo de quando foi criado.
+  const snap = await db.collection("cadastros").get();
+  for (const doc of snap.docs) {
+    if (doc.id === ignorarId) continue;
+    const docData = doc.data();
+    const docNorm = (docData.documento ?? "").replace(/\D/g, "");
+    if (docNorm && docNorm === normalizado) return toCadastro(doc);
+  }
+  return null;
+}
+
 export async function criarCadastro(input: CadastroInput) {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado");

@@ -3,6 +3,7 @@
 import { db } from "@/lib/firebase-admin";
 
 export interface SugestoesEndereco {
+  nome: string[];
   endereco: string[];
   numero: string[];
   complemento: string[];
@@ -24,6 +25,7 @@ function distinctOrdenado(valores: Iterable<string>): string[] {
 export async function listarSugestoesEndereco(): Promise<SugestoesEndereco> {
   const snap = await db.collection("cadastros").get();
 
+  const nome: string[] = [];
   const endereco: string[] = [];
   const numero: string[] = [];
   const complemento: string[] = [];
@@ -35,6 +37,7 @@ export async function listarSugestoesEndereco(): Promise<SugestoesEndereco> {
 
   for (const doc of snap.docs) {
     const data = doc.data();
+    if (data.nome) nome.push(data.nome);
     if (data.endereco) endereco.push(data.endereco);
     if (data.numero) numero.push(data.numero);
     if (data.complemento) complemento.push(data.complemento);
@@ -48,6 +51,7 @@ export async function listarSugestoesEndereco(): Promise<SugestoesEndereco> {
   }
 
   return {
+    nome: distinctOrdenado(nome),
     endereco: distinctOrdenado(endereco),
     numero: distinctOrdenado(numero),
     complemento: distinctOrdenado(complemento),

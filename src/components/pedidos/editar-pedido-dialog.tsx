@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { PlusIcon, TrashIcon } from "lucide-react";
+import { PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,13 +26,12 @@ import {
 } from "@/components/ui/combobox";
 import { NovoProdutoDialog, type ProdutoOpcao } from "@/components/pedidos/novo-produto-dialog";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
-import { criarPedido } from "@/server/pedidos";
-import { pedidoSchema, type Produto } from "@/lib/types";
+import { atualizarPedido } from "@/server/pedidos";
+import { pedidoSchema, type Pedido, type Produto } from "@/lib/types";
 import { formatarMoeda } from "@/lib/moeda";
+import { formatarCodigo } from "@/lib/codigo";
 
 type ClienteOpcao = { value: string; label: string };
-
-const OBSERVACAO_PADRAO = "Prazo de Entrega de 8 a 15 dias Úteis\nDistribuidor Autorizado Kapazi";
 
 interface ItemForm {
   chave: string;
@@ -54,18 +53,21 @@ function itemVazio(): ItemForm {
   };
 }
 
-export function NovoPedidoDialog({
+export function EditarPedidoDialog({
+  pedido,
   clientes,
   produtosIniciais,
-  observacaoPadrao,
+  trigger,
 }: {
+  pedido: Pedido;
   clientes: ClienteOpcao[];
   produtosIniciais: Produto[];
-  observacaoPadrao?: string;
+  trigger?: React.ReactElement;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
   const [produtos, setProdutos] = useState<ProdutoOpcao[]>(
     produtosIniciais.map((p) => ({
       value: p.id,
@@ -75,20 +77,52 @@ export function NovoPedidoDialog({
       imagemUrl: p.imagemUrl,
     }))
   );
-  const [cliente, setCliente] = useState<ClienteOpcao | null>(null);
-  const [itens, setItens] = useState<ItemForm[]>([itemVazio()]);
-  const observacaoTextoPadrao = observacaoPadrao ?? OBSERVACAO_PADRAO;
-  const [observacao, setObservacao] = useState(observacaoTextoPadrao);
+
+  function MapearItensIniciais(): ItemForm[] {
+    if (!pedido.itens || pedido.itens.length === 0) return [itemVazio()];
+    return pedido.itens.map((item) => {
+      const prodEncontrado = produtos.find((p) => p.value === item.produtoId);
+      const prodOpcao: ProdutoOpcao = prodEncontrado ?? {
+        value: item.produtoId,
+        label: item.produtoNome,
+        preco: item.precoUnitario,
+        custoM2: 0,
+        imagemUrl: "",
+      };
+      return {
+        chave: crypto.randomUUID(),
+        produto: prodOpcao,
+        quantidade: String(item.quantidade),
+        comprimento: item.comprimento ? String(item.comprimento) : "",
+        largura: item.largura ? String(item.largura) : "",
+        precoUnitario: String(item.precoUnitario),
+      };
+    });
+  }
+
+  const clienteInicial = clientes.find((c) => c.value === pedido.cadastroId) ?? {
+    value: pedido.cadastroId,
+    label: pedido.cadastroNome,
+  };
+
+  const [cliente, setCliente] = useState<ClienteOpcao | null>(clienteInicial);
+  const [itens, setItens] = useState<ItemForm[]>(MapearItensIniciais);
+  const [observacao, setObservacao] = useState(pedido.observacao ?? "");
 
   const total = itens.reduce(
     (soma, item) => soma + (Number(item.quantidade) || 0) * (Number(item.precoUnitario) || 0),
     0
   );
 
-  function resetar() {
-    setCliente(null);
-    setItens([itemVazio()]);
-    setObservacao(observacaoTextoPadrao);
+  function resetarComDadosDoPedido() {
+    setCliente(
+      clientes.find((c) => c.value === pedido.cadastroId) ?? {
+        value: pedido.cadastroId,
+        label: pedido.cadastroNome,
+      }
+    );
+    setItens(MapearItensIniciais());
+    setObservacao(pedido.observacao ?? "");
   }
 
   function atualizarItem(chave: string, patch: Partial<ItemForm>) {
@@ -112,6 +146,7 @@ export function NovoPedidoDialog({
         precoUnitario: item.precoUnitario,
       })),
       observacao,
+      status: pedido.status,
     });
 
     if (!parsed.success) {
@@ -121,13 +156,13 @@ export function NovoPedidoDialog({
 
     startTransition(async () => {
       try {
-        await criarPedido(parsed.data);
-        toast.success("Orçamento criado.");
+        await atualizarPedido(pedido.id, parsed.data);
+        const tipoDesc = pedido.status === "PEDIDO" ? "Pedido" : "Orçamento";
+        toast.success(`${tipoDesc} #${formatarCodigo(pedido.numero)} atualizado.`);
         setOpen(false);
-        resetar();
         router.refresh();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro ao criar orçamento.");
+        toast.error(err instanceof Error ? err.message : "Erro ao atualizar orçamento.");
       }
     });
   }
@@ -137,13 +172,23 @@ export function NovoPedidoDialog({
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (!v) resetar();
+        if (!v) resetarComDadosDoPedido();
       }}
     >
-      <DialogTrigger render={<Button>Inserir orçamento</Button>} />
+      <DialogTrigger
+        render={
+          trigger ?? (
+            <Button type="button" variant="ghost" size="icon-sm" title="Editar">
+              <PencilIcon />
+            </Button>
+          )
+        }
+      />
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Novo orçamento</DialogTitle>
+          <DialogTitle>
+            Editar {pedido.status === "PEDIDO" ? "pedido" : "orçamento"} #{formatarCodigo(pedido.numero)}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
@@ -185,7 +230,8 @@ export function NovoPedidoDialog({
                 const quantidade = Number(item.quantidade) || 0;
                 const precoUnitario = Number(item.precoUnitario) || 0;
                 const subtotal = quantidade * precoUnitario;
-                const areaUnidade = ((Number(item.comprimento) || 0) / 100) * ((Number(item.largura) || 0) / 100);
+                const areaUnidade =
+                  ((Number(item.comprimento) || 0) / 100) * ((Number(item.largura) || 0) / 100);
                 const m2Total = areaUnidade * quantidade;
                 const custoTotalItem = areaUnidade * (item.produto?.custoM2 ?? 0) * quantidade;
                 const markupRs = subtotal - custoTotalItem;
@@ -284,14 +330,20 @@ export function NovoPedidoDialog({
 
                     <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span>
-                        M²: {m2Total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        M²:{" "}
+                        {m2Total.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                       <span>Custo total: {formatarMoeda(custoTotalItem)}</span>
                       <span>
                         Markup: {markupPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% (
                         {formatarMoeda(markupRs)})
                       </span>
-                      <span className="text-sm font-medium text-foreground">Subtotal: {formatarMoeda(subtotal)}</span>
+                      <span className="text-sm font-medium text-foreground">
+                        Subtotal: {formatarMoeda(subtotal)}
+                      </span>
                     </div>
                   </div>
                 );
@@ -305,9 +357,9 @@ export function NovoPedidoDialog({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="observacaoPedido">Observações</Label>
+            <Label htmlFor="observacaoPedidoEdit">Observações</Label>
             <Textarea
-              id="observacaoPedido"
+              id="observacaoPedidoEdit"
               rows={3}
               value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
@@ -318,7 +370,7 @@ export function NovoPedidoDialog({
 
         <DialogFooter>
           <Button type="button" disabled={isPending} onClick={handleSubmit}>
-            {isPending ? "Salvando..." : "Salvar orçamento"}
+            {isPending ? "Salvando..." : "Salvar alterações"}
           </Button>
         </DialogFooter>
       </DialogContent>

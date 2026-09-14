@@ -17,7 +17,7 @@ function textoSeguroPdf(texto: string): string {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 32, fontSize: 9, fontFamily: "Helvetica", color: "#1a1a1a" },
+  page: { paddingTop: 32, paddingHorizontal: 32, paddingBottom: 64, fontSize: 9, fontFamily: "Helvetica", color: "#1a1a1a" },
   marcaDaguaContainer: {
     position: "absolute",
     top: 0,
@@ -31,17 +31,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: 16,
-    paddingBottom: 12,
-    borderBottom: "1 solid #ddd",
+    paddingBottom: 14,
+    borderBottom: "1.5 solid #0f172a",
   },
-  logo: { width: 110, height: 110, objectFit: "contain" },
-  esquerdaBloco: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  selo: { width: 50, height: 50, objectFit: "contain" },
-  empresaBloco: { alignItems: "flex-start", textAlign: "left", gap: 1 },
-  empresaNome: { fontSize: 13, fontWeight: 700, marginBottom: 2 },
-  empresaLinha: { fontSize: 8, color: "#555" },
+  logo: { width: 110, height: 80, objectFit: "contain" },
+  esquerdaBloco: { flexDirection: "row", alignItems: "center", gap: 12 },
+  selo: { width: 95, height: 95, objectFit: "contain" },
+  empresaBloco: { alignItems: "flex-start", textAlign: "left", gap: 2 },
+  empresaNome: { fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 2 },
+  empresaLinha: { fontSize: 8.5, color: "#475569" },
+  contatoLinha: { flexDirection: "row", alignItems: "center", gap: 4 },
+  iconeSocial: { width: 10, height: 10, objectFit: "contain" },
   tituloBloco: { marginBottom: 12 },
   titulo: { fontSize: 14, fontWeight: 700 },
   subtitulo: { fontSize: 9, color: "#555", marginTop: 2 },
@@ -68,9 +70,18 @@ const styles = StyleSheet.create({
   totalBloco: { marginTop: 14, alignItems: "flex-end" },
   totalLabel: { fontSize: 9, color: "#555" },
   totalValor: { fontSize: 15, fontWeight: 700 },
-  observacaoBloco: { marginTop: 16, paddingTop: 10, borderTop: "1 solid #ddd" },
+  observacaoBloco: {
+    position: "absolute",
+    bottom: 20,
+    left: 32,
+    right: 32,
+    paddingTop: 6,
+    borderTop: "1 solid #ddd",
+  },
   observacaoTexto: { fontSize: 8, color: "#555", lineHeight: 1.4 },
 });
+
+import { formatarCpfCnpj } from "@/lib/documento";
 
 function OrcamentoDocument({
   pedido,
@@ -78,6 +89,10 @@ function OrcamentoDocument({
   empresa,
   logoDataUri,
   seloDataUri,
+  whatsappDataUri,
+  instagramDataUri,
+  siteDataUri,
+  emailDataUri,
   imagensProdutos,
 }: {
   pedido: Pedido;
@@ -85,6 +100,10 @@ function OrcamentoDocument({
   empresa: Empresa | null;
   logoDataUri: string | null;
   seloDataUri: string | null;
+  whatsappDataUri?: string | null;
+  instagramDataUri?: string | null;
+  siteDataUri?: string | null;
+  emailDataUri?: string | null;
   imagensProdutos: Record<string, string | null>;
 }) {
   const enderecoCliente = cliente
@@ -111,9 +130,42 @@ function OrcamentoDocument({
               <Text style={styles.empresaNome}>{empresa?.nome || "SUA EMPRESA"}</Text>
               {empresa?.cnpj ? <Text style={styles.empresaLinha}>CNPJ: {empresa.cnpj}</Text> : null}
               {empresa?.endereco ? <Text style={styles.empresaLinha}>{empresa.endereco}</Text> : null}
-              {empresa?.telefone ? <Text style={styles.empresaLinha}>{empresa.telefone}</Text> : null}
-              {empresa?.email ? <Text style={styles.empresaLinha}>{empresa.email}</Text> : null}
-              {empresa?.site ? <Text style={styles.empresaLinha}>{empresa.site}</Text> : null}
+              {empresa?.telefone ? (
+                <View style={styles.contatoLinha}>
+                  {whatsappDataUri ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <Image src={whatsappDataUri} style={styles.iconeSocial} />
+                  ) : null}
+                  <Text style={styles.empresaLinha}>{empresa.telefone}</Text>
+                </View>
+              ) : null}
+              {empresa?.instagram ? (
+                <View style={styles.contatoLinha}>
+                  {instagramDataUri ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <Image src={instagramDataUri} style={styles.iconeSocial} />
+                  ) : null}
+                  <Text style={styles.empresaLinha}>{empresa.instagram}</Text>
+                </View>
+              ) : null}
+              {empresa?.email ? (
+                <View style={styles.contatoLinha}>
+                  {emailDataUri ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <Image src={emailDataUri} style={styles.iconeSocial} />
+                  ) : null}
+                  <Text style={styles.empresaLinha}>{empresa.email}</Text>
+                </View>
+              ) : null}
+              {empresa?.site ? (
+                <View style={styles.contatoLinha}>
+                  {siteDataUri ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text
+                    <Image src={siteDataUri} style={styles.iconeSocial} />
+                  ) : null}
+                  <Text style={styles.empresaLinha}>{empresa.site}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
           {seloDataUri ? (
@@ -125,7 +177,9 @@ function OrcamentoDocument({
         </View>
 
         <View style={styles.tituloBloco}>
-          <Text style={styles.titulo}>Orçamento {formatarCodigo(pedido.numero)}</Text>
+          <Text style={styles.titulo}>
+            {pedido.status === "PEDIDO" ? "Pedido" : "Orçamento"} {formatarCodigo(pedido.numero)}
+          </Text>
           <Text style={styles.subtitulo}>
             Data: {new Date(pedido.createdAt).toLocaleDateString("pt-BR")}
           </Text>
@@ -134,7 +188,9 @@ function OrcamentoDocument({
         <View style={styles.secao}>
           <Text style={styles.secaoTitulo}>CLIENTE</Text>
           <Text style={styles.clienteNome}>{pedido.cadastroNome}</Text>
-          {cliente?.documento ? <Text style={styles.clienteLinha}>Documento: {cliente.documento}</Text> : null}
+          {cliente?.documento ? (
+            <Text style={styles.clienteLinha}>CNPJ/CPF: {formatarCpfCnpj(cliente.documento)}</Text>
+          ) : null}
           {cliente?.telefone ? <Text style={styles.clienteLinha}>Telefone: {cliente.telefone}</Text> : null}
           {enderecoCliente ? <Text style={styles.clienteLinha}>{enderecoCliente}</Text> : null}
         </View>
@@ -177,7 +233,7 @@ function OrcamentoDocument({
         </View>
 
         {pedido.observacao ? (
-          <View style={styles.observacaoBloco}>
+          <View style={styles.observacaoBloco} fixed>
             <Text style={styles.secaoTitulo}>OBSERVAÇÕES</Text>
             <Text style={styles.observacaoTexto}>{textoSeguroPdf(pedido.observacao)}</Text>
           </View>
@@ -193,6 +249,10 @@ export async function renderOrcamentoPdf(props: {
   empresa: Empresa | null;
   logoDataUri: string | null;
   seloDataUri: string | null;
+  whatsappDataUri?: string | null;
+  instagramDataUri?: string | null;
+  siteDataUri?: string | null;
+  emailDataUri?: string | null;
   imagensProdutos: Record<string, string | null>;
 }): Promise<Buffer> {
   return renderToBuffer(<OrcamentoDocument {...props} />);

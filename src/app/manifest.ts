@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Gesttão",
     short_name: "Gesttão",
     description: "ERP interno — cadastros, CRM, pedidos e financeiro",
-    start_url: "/",
+    start_url: "/agendamentos",
     display: "standalone",
     orientation: "portrait",
     background_color: "#ffffff",

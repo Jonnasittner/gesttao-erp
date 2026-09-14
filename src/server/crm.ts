@@ -78,7 +78,7 @@ function agruparPorAtendimento(interacoes: Interacao[]): Atendimento[] {
 }
 
 /** Reaproveita o atendimento em aberto do cadastro, ou inicia um novo se o último já estiver fechado. */
-async function resolverAtendimentoId(cadastroId: string): Promise<string> {
+export async function resolverAtendimentoId(cadastroId: string): Promise<string> {
   const snap = await db.collection("interacoes").where("cadastroId", "==", cadastroId).get();
   if (snap.empty) return randomUUID();
 
@@ -125,6 +125,7 @@ export async function criarInteracao(input: InteracaoInput) {
 
   revalidatePath(`/cadastros/${parsed.cadastroId}`);
   revalidatePath("/crm");
+  revalidatePath("/agendamentos");
   return { id: ref.id };
 }
 
@@ -143,6 +144,7 @@ export async function atualizarInteracao(id: string, input: InteracaoInput) {
 
   revalidatePath(`/cadastros/${parsed.cadastroId}`);
   revalidatePath("/crm");
+  revalidatePath("/agendamentos");
 }
 
 export async function reagendarInteracao(id: string, cadastroId: string, dataReagendamento: string) {
@@ -155,6 +157,8 @@ export async function reagendarInteracao(id: string, cadastroId: string, dataRea
     .update({ dataReagendamento: dataReagendamento || null });
 
   revalidatePath(`/cadastros/${cadastroId}`);
+  revalidatePath("/crm");
+  revalidatePath("/agendamentos");
 }
 
 export async function atualizarEtapaInteracao(id: string, etapa: EtapaAtendimento) {
@@ -163,4 +167,5 @@ export async function atualizarEtapaInteracao(id: string, etapa: EtapaAtendiment
 
   await db.collection("interacoes").doc(id).update({ etapa });
   revalidatePath("/crm");
+  revalidatePath("/agendamentos");
 }

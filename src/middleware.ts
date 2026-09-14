@@ -15,7 +15,7 @@ export default auth((req) => {
   }
 
   if (isLoggedIn && isLoginPage) {
-    return NextResponse.redirect(new URL("/", req.nextUrl.origin));
+    return NextResponse.redirect(new URL("/agendamentos", req.nextUrl.origin));
   }
 });
 

@@ -22,11 +22,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const produtoIds = [...new Set(pedido.itens.map((item) => item.produtoId).filter(Boolean))];
 
-  const [cliente, empresa, logoDataUri, seloDataUri, imagensProdutosLista] = await Promise.all([
+  const [
+    cliente,
+    empresa,
+    logoDataUri,
+    seloDataUri,
+    whatsappDataUri,
+    instagramDataUri,
+    siteDataUri,
+    emailDataUri,
+    imagensProdutosLista,
+  ] = await Promise.all([
     buscarCadastro(pedido.cadastroId),
     buscarEmpresa(),
     lerImagemEmpresa("logo"),
     lerImagemEmpresa("selo"),
+    lerImagemEmpresa("whatsapp"),
+    lerImagemEmpresa("instagram"),
+    lerImagemEmpresa("site"),
+    lerImagemEmpresa("email"),
     Promise.all(produtoIds.map((produtoId) => dataUriImagemProduto(produtoId))),
   ]);
 
@@ -40,13 +54,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     empresa,
     logoDataUri,
     seloDataUri,
+    whatsappDataUri,
+    instagramDataUri,
+    siteDataUri,
+    emailDataUri,
     imagensProdutos,
   });
+
+  const prefixo = pedido.status === "PEDIDO" ? "pedido" : "orcamento";
 
   return new NextResponse(new Blob([Uint8Array.from(pdfBuffer)]), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="orcamento-${formatarCodigo(pedido.numero)}.pdf"`,
+      "Content-Disposition": `attachment; filename="${prefixo}-${formatarCodigo(pedido.numero)}.pdf"`,
       "Cache-Control": "private, no-store",
     },
   });

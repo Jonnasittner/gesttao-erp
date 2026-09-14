@@ -19,8 +19,12 @@ export async function buscarEmpresa(): Promise<Empresa | null> {
     cnpj: data.cnpj ?? "",
     endereco: data.endereco ?? "",
     telefone: data.telefone ?? "",
-    email: data.email ?? "",
+    instagram: data.instagram ?? "",
     site: data.site ?? "",
+    email: data.email ?? "",
+    observacaoPadraoPedido:
+      data.observacaoPadraoPedido ??
+      "Prazo de Entrega de 8 a 15 dias Úteis\nDistribuidor Autorizado Kapazi",
     updatedAt: data.updatedAt?.toDate?.().toISOString() ?? "",
   };
 }
