@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, DownloadIcon, PencilIcon } from "lucide-react";
+import { ArrowLeftIcon, PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,6 +17,7 @@ import { buscarProduto, listarProdutos } from "@/server/produtos";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
 import { ConverterPedidoBotao } from "@/components/pedidos/converter-pedido-botao";
 import { EditarPedidoDialog } from "@/components/pedidos/editar-pedido-dialog";
+import { BaixarPdfBotao } from "@/components/pedidos/baixar-pdf-botao";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 
@@ -90,16 +91,10 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
           {!isPedido && (
             <ConverterPedidoBotao id={pedido.id} numero={codigoFormatado} showText={true} />
           )}
-          <Button
-            nativeButton={false}
-            render={
-              <a
-                href={`/api/pedidos/${pedido.id}/pdf`}
-                download={`${isPedido ? "pedido" : "orcamento"}-${codigoFormatado}.pdf`}
-              >
-                <DownloadIcon /> Baixar PDF
-              </a>
-            }
+          <BaixarPdfBotao
+            pedidoId={pedido.id}
+            nomeArquivo={`${isPedido ? "pedido" : "orcamento"}-${codigoFormatado}.pdf`}
+            titulo={`${isPedido ? "Pedido" : "Orçamento"} ${codigoFormatado}`}
           />
         </div>
       </div>

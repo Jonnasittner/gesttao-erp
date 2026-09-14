@@ -2,16 +2,9 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { EyeIcon, ExternalLinkIcon } from "lucide-react";
+import { EyeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { VisualizadorPdf } from "@/components/pedidos/visualizador-pdf";
 import type { PedidoInput } from "@/lib/types";
 
 interface PreviaPdfBotaoProps {
@@ -69,53 +62,29 @@ export function PreviaPdfBotao({
         <EyeIcon /> {gerando ? "Gerando prévia..." : "Pré-visualizar PDF"}
       </Button>
 
-      <Dialog open={url !== null} onOpenChange={(aberto) => !aberto && fechar()}>
-        <DialogContent className="flex h-[92vh] flex-col gap-3 sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Prévia do PDF</DialogTitle>
-            <DialogDescription>
-              Nada foi salvo ainda. Confira e salve, ou volte para ajustar.
-            </DialogDescription>
-          </DialogHeader>
-
-          {url && (
-            <iframe
-              src={url}
-              title="Prévia do PDF do orçamento"
-              className="min-h-0 w-full flex-1 rounded-md border bg-muted"
-            />
-          )}
-
-          <DialogFooter className="gap-2 sm:justify-between">
-            {url && (
-              <Button
-                variant="ghost"
-                nativeButton={false}
-                render={
-                  <a href={url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLinkIcon /> Abrir em nova aba
-                  </a>
-                }
-              />
-            )}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button type="button" variant="outline" onClick={fechar}>
-                Voltar e editar
-              </Button>
-              <Button
-                type="button"
-                disabled={salvando}
-                onClick={() => {
-                  fechar();
-                  onSalvar();
-                }}
-              >
-                {textoSalvar}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VisualizadorPdf
+        url={url}
+        titulo="Prévia do PDF"
+        descricao="Nada foi salvo ainda. Confira e salve, ou volte para ajustar."
+        onFechar={fechar}
+        acoes={
+          <>
+            <Button type="button" variant="outline" onClick={fechar}>
+              Voltar e editar
+            </Button>
+            <Button
+              type="button"
+              disabled={salvando}
+              onClick={() => {
+                fechar();
+                onSalvar();
+              }}
+            >
+              {textoSalvar}
+            </Button>
+          </>
+        }
+      />
     </>
   );
 }
