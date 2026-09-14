@@ -1,18 +1,31 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { 
+import {
   Calendar,
-  Contact, 
-  LayoutDashboard, 
-  Package, 
+  Contact,
+  LayoutDashboard,
+  Loader2,
+  Package,
   Settings, 
   ShoppingCart, 
   Users, 
   Wallet,
   type LucideIcon 
 } from "lucide-react";
+
+// Ícone girando no item clicado enquanto a próxima tela carrega. Precisa estar
+// dentro do <Link>. O atraso evita piscar quando a troca é instantânea.
+function IndicadorCarregando({ className = "" }: { className?: string }) {
+  const { pending } = useLinkStatus();
+  if (!pending) return null;
+  return (
+    <span aria-hidden className={`opacity-0 animate-[fadeIn_150ms_ease-out_120ms_forwards] ${className}`}>
+      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+    </span>
+  );
+}
 
 interface NavItem {
   href: string;
@@ -63,6 +76,7 @@ export function SidebarNav() {
             }`} />
             
             <span>{item.label}</span>
+            {!item.emBreve && <IndicadorCarregando className="ml-auto" />}
             
             {item.emBreve && (
               <span className="ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground/60 border dark:border-white/5 scale-90">
@@ -92,7 +106,7 @@ export function MobileNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
+            className={`relative flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
               isActive 
                 ? "text-primary scale-105" 
                 : "text-muted-foreground hover:text-foreground"
@@ -100,6 +114,7 @@ export function MobileNav() {
           >
             <item.icon className={`h-5 w-5 transition-transform ${isActive ? "stroke-[2.5px]" : "stroke-[2px]"}`} />
             <span className="text-[10px] font-semibold tracking-wide">{item.label}</span>
+            <IndicadorCarregando className="absolute top-0.5 right-1" />
             {isActive && (
               <span className="h-1 w-1 rounded-full bg-primary animate-pulse" />
             )}
