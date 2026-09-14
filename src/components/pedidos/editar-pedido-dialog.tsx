@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/combobox";
 import { NovoProdutoDialog, type ProdutoOpcao } from "@/components/pedidos/novo-produto-dialog";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
+import { PreviaPdfBotao } from "@/components/pedidos/previa-pdf-botao";
 import { atualizarPedido } from "@/server/pedidos";
 import { pedidoSchema, type Pedido, type Produto } from "@/lib/types";
 import { formatarMoeda } from "@/lib/moeda";
@@ -133,7 +134,7 @@ export function EditarPedidoDialog({
     setItens((atual) => (atual.length > 1 ? atual.filter((item) => item.chave !== chave) : atual));
   }
 
-  function handleSubmit() {
+  function montarDados() {
     const parsed = pedidoSchema.safeParse({
       cadastroId: cliente?.value ?? "",
       cadastroNome: cliente?.label ?? "",
@@ -151,12 +152,18 @@ export function EditarPedidoDialog({
 
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Dados inválidos.");
-      return;
+      return null;
     }
+    return parsed.data;
+  }
+
+  function handleSubmit() {
+    const dados = montarDados();
+    if (!dados) return;
 
     startTransition(async () => {
       try {
-        await atualizarPedido(pedido.id, parsed.data);
+        await atualizarPedido(pedido.id, dados);
         const tipoDesc = pedido.status === "PEDIDO" ? "Pedido" : "Orçamento";
         toast.success(`${tipoDesc} #${formatarCodigo(pedido.numero)} atualizado.`);
         setOpen(false);
@@ -369,6 +376,14 @@ export function EditarPedidoDialog({
         </div>
 
         <DialogFooter>
+          <PreviaPdfBotao
+            montarDados={montarDados}
+            numero={pedido.numero}
+            createdAt={pedido.createdAt}
+            onSalvar={handleSubmit}
+            salvando={isPending}
+            textoSalvar="Salvar alterações"
+          />
           <Button type="button" disabled={isPending} onClick={handleSubmit}>
             {isPending ? "Salvando..." : "Salvar alterações"}
           </Button>

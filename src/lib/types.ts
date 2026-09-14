@@ -163,6 +163,29 @@ export interface Empresa extends EmpresaInput {
   updatedAt: string;
 }
 
+// Usuários que podem entrar no sistema (coleção "usuarios"). O nome fica como
+// digitado — é o nome que aparece no menu e em "Registrado por".
+export const TAMANHO_MINIMO_SENHA = 6;
+
+export const usuarioSchema = z.object({
+  nome: z.string().trim().min(1, "Informe o nome"),
+  email: z
+    .string()
+    .trim()
+    .email("E-mail inválido")
+    .transform((s) => s.toLowerCase()),
+});
+export type UsuarioInput = z.infer<typeof usuarioSchema>;
+
+export const senhaSchema = z
+  .string()
+  .min(TAMANHO_MINIMO_SENHA, `A senha precisa ter pelo menos ${TAMANHO_MINIMO_SENHA} caracteres`);
+
+export interface Usuario extends UsuarioInput {
+  id: string;
+  createdAt: string;
+}
+
 export interface Anexo {
   id: string;
   interacaoId: string;

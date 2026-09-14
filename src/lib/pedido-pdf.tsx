@@ -94,6 +94,7 @@ function OrcamentoDocument({
   siteDataUri,
   emailDataUri,
   imagensProdutos,
+  previa,
 }: {
   pedido: Pedido;
   cliente: Cadastro | null;
@@ -105,6 +106,8 @@ function OrcamentoDocument({
   siteDataUri?: string | null;
   emailDataUri?: string | null;
   imagensProdutos: Record<string, string | null>;
+  /** Prévia antes de salvar: orçamento novo ainda não tem número. */
+  previa?: boolean;
 }) {
   const enderecoCliente = cliente
     ? [cliente.endereco, cliente.numero, cliente.bairro, cliente.cidade, cliente.estado].filter(Boolean).join(", ")
@@ -178,10 +181,12 @@ function OrcamentoDocument({
 
         <View style={styles.tituloBloco}>
           <Text style={styles.titulo}>
-            {pedido.status === "PEDIDO" ? "Pedido" : "Orçamento"} {formatarCodigo(pedido.numero)}
+            {pedido.status === "PEDIDO" ? "Pedido" : "Orçamento"}{" "}
+            {pedido.numero ? formatarCodigo(pedido.numero) : ""}
           </Text>
           <Text style={styles.subtitulo}>
             Data: {new Date(pedido.createdAt).toLocaleDateString("pt-BR")}
+            {previa ? "  ·  PRÉVIA — AINDA NÃO SALVO" : ""}
           </Text>
         </View>
 
@@ -254,6 +259,7 @@ export async function renderOrcamentoPdf(props: {
   siteDataUri?: string | null;
   emailDataUri?: string | null;
   imagensProdutos: Record<string, string | null>;
+  previa?: boolean;
 }): Promise<Buffer> {
   return renderToBuffer(<OrcamentoDocument {...props} />);
 }

@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   // serverless (logo/selo somem só em produção, não em `next dev`).
   outputFileTracingIncludes: {
     "/api/pedidos/[id]/pdf": ["./public/empresa/**/*"],
+    "/api/pedidos/previa": ["./public/empresa/**/*"],
   },
   async redirects() {
     return [

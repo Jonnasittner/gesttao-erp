@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { lerImagemEmpresa } from "@/lib/imagem-empresa";
 import { buscarPedido } from "@/server/pedidos";
-import { buscarCadastro } from "@/server/cadastros";
-import { buscarEmpresa } from "@/server/empresa";
-import { dataUriImagemProduto } from "@/server/produtos";
-import { renderOrcamentoPdf } from "@/lib/pedido-pdf";
+import { gerarPdfOrcamento } from "@/lib/gerar-pdf-orcamento";
 import { formatarCodigo } from "@/lib/codigo";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -20,47 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new NextResponse("Orçamento não encontrado", { status: 404 });
   }
 
-  const produtoIds = [...new Set(pedido.itens.map((item) => item.produtoId).filter(Boolean))];
-
-  const [
-    cliente,
-    empresa,
-    logoDataUri,
-    seloDataUri,
-    whatsappDataUri,
-    instagramDataUri,
-    siteDataUri,
-    emailDataUri,
-    imagensProdutosLista,
-  ] = await Promise.all([
-    buscarCadastro(pedido.cadastroId),
-    buscarEmpresa(),
-    lerImagemEmpresa("logo"),
-    lerImagemEmpresa("selo"),
-    lerImagemEmpresa("whatsapp"),
-    lerImagemEmpresa("instagram"),
-    lerImagemEmpresa("site"),
-    lerImagemEmpresa("email"),
-    Promise.all(produtoIds.map((produtoId) => dataUriImagemProduto(produtoId))),
-  ]);
-
-  const imagensProdutos = Object.fromEntries(
-    produtoIds.map((produtoId, index) => [produtoId, imagensProdutosLista[index]])
-  );
-
-  const pdfBuffer = await renderOrcamentoPdf({
-    pedido,
-    cliente,
-    empresa,
-    logoDataUri,
-    seloDataUri,
-    whatsappDataUri,
-    instagramDataUri,
-    siteDataUri,
-    emailDataUri,
-    imagensProdutos,
-  });
-
+  const pdfBuffer = await gerarPdfOrcamento(pedido);
   const prefixo = pedido.status === "PEDIDO" ? "pedido" : "orcamento";
 
   return new NextResponse(new Blob([Uint8Array.from(pdfBuffer)]), {

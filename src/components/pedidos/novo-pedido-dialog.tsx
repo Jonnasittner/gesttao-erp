@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/combobox";
 import { NovoProdutoDialog, type ProdutoOpcao } from "@/components/pedidos/novo-produto-dialog";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
+import { PreviaPdfBotao } from "@/components/pedidos/previa-pdf-botao";
 import { criarPedido } from "@/server/pedidos";
 import { pedidoSchema, type Produto } from "@/lib/types";
 import { formatarMoeda } from "@/lib/moeda";
@@ -99,7 +100,7 @@ export function NovoPedidoDialog({
     setItens((atual) => (atual.length > 1 ? atual.filter((item) => item.chave !== chave) : atual));
   }
 
-  function handleSubmit() {
+  function montarDados() {
     const parsed = pedidoSchema.safeParse({
       cadastroId: cliente?.value ?? "",
       cadastroNome: cliente?.label ?? "",
@@ -116,12 +117,18 @@ export function NovoPedidoDialog({
 
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Dados inválidos.");
-      return;
+      return null;
     }
+    return parsed.data;
+  }
+
+  function handleSubmit() {
+    const dados = montarDados();
+    if (!dados) return;
 
     startTransition(async () => {
       try {
-        await criarPedido(parsed.data);
+        await criarPedido(dados);
         toast.success("Orçamento criado.");
         setOpen(false);
         resetar();
@@ -317,6 +324,12 @@ export function NovoPedidoDialog({
         </div>
 
         <DialogFooter>
+          <PreviaPdfBotao
+            montarDados={montarDados}
+            onSalvar={handleSubmit}
+            salvando={isPending}
+            textoSalvar="Salvar orçamento"
+          />
           <Button type="button" disabled={isPending} onClick={handleSubmit}>
             {isPending ? "Salvando..." : "Salvar orçamento"}
           </Button>

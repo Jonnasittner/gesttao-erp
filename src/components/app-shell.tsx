@@ -1,8 +1,21 @@
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/firebase-admin";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/server/auth-actions";
 import { SidebarNav, MobileNav } from "@/components/navigation";
+
+// A sessão é um JWT que continua válido mesmo depois de o usuário ser
+// removido em Configurações. Ao abrir/recarregar o sistema, confere se ele
+// ainda existe e, se não, encerra a sessão. Fica num Suspense próprio para
+// não atrasar a exibição da tela.
+async function VerificarAcesso({ usuarioId }: { usuarioId: string }) {
+  const doc = await db.collection("usuarios").doc(usuarioId).get();
+  if (!doc.exists) redirect("/api/sair");
+  return null;
+}
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -74,6 +87,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Navegação inferior — celular */}
       <MobileNav />
+
+      {session?.user?.id && (
+        <Suspense fallback={null}>
+          <VerificarAcesso usuarioId={session.user.id} />
+        </Suspense>
+      )}
     </div>
   );
 }
