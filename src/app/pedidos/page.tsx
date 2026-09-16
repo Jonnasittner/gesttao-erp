@@ -16,16 +16,27 @@ import { listarPedidos } from "@/server/pedidos";
 import { listarProdutos } from "@/server/produtos";
 import { listarCadastros } from "@/server/cadastros";
 import { buscarEmpresa } from "@/server/empresa";
+import { listarLancamentos } from "@/server/financeiro";
+import { calcularMargemPedido } from "@/lib/financeiro";
+import type { Lancamento } from "@/lib/types";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 
 export default async function PedidosPage() {
-  const [pedidos, clientes, produtos, empresa] = await Promise.all([
+  const [pedidos, clientes, produtos, empresa, lancamentos] = await Promise.all([
     listarPedidos(),
     listarCadastros("CLIENTE"),
     listarProdutos(),
     buscarEmpresa(),
+    listarLancamentos(),
   ]);
+
+  // Lançamentos agrupados por pedido, para a coluna de margem.
+  const lancamentosPorPedido = new Map<string, Lancamento[]>();
+  for (const l of lancamentos) {
+    if (!l.pedidoId) continue;
+    lancamentosPorPedido.set(l.pedidoId, [...(lancamentosPorPedido.get(l.pedidoId) ?? []), l]);
+  }
 
   const opcoesClientes = clientes.map((c) => ({ value: c.id, label: c.nome }));
 
@@ -48,6 +59,7 @@ export default async function PedidosPage() {
               <TableHead>Cliente</TableHead>
               <TableHead>Itens</TableHead>
               <TableHead>Total</TableHead>
+              <TableHead>Margem</TableHead>
               <TableHead>Data</TableHead>
               <TableHead className="w-0" />
             </TableRow>
@@ -55,7 +67,7 @@ export default async function PedidosPage() {
           <TableBody>
             {pedidos.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Nenhum pedido ou orçamento encontrado.
                 </TableCell>
               </TableRow>
@@ -93,6 +105,13 @@ export default async function PedidosPage() {
                       .join(", ")}
                   </TableCell>
                   <TableCell>{formatarMoeda(pedido.total)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <CelulaMargem
+                      isPedido={isPedido}
+                      total={pedido.total}
+                      lancamentos={lancamentosPorPedido.get(pedido.id) ?? []}
+                    />
+                  </TableCell>
                   <TableCell>{new Date(pedido.createdAt).toLocaleDateString("pt-BR")}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
@@ -119,5 +138,22 @@ export default async function PedidosPage() {
         </Table>
       </div>
     </div>
+  );
+}
+
+/** Margem do pedido na lista; sem custo lançado não mostra % (seria 100% enganoso). */
+function CelulaMargem({ isPedido, total, lancamentos }: { isPedido: boolean; total: number; lancamentos: Lancamento[] }) {
+  if (!isPedido) return <span className="text-muted-foreground">—</span>;
+  const margem = calcularMargemPedido(total, lancamentos);
+  if (margem.custos === 0) return <span className="text-xs text-muted-foreground">sem custos</span>;
+  return (
+    <span className={margem.margem < 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}>
+      {formatarMoeda(margem.margem)}
+      {margem.margemPercentual !== null && (
+        <span className="ml-1 text-xs text-muted-foreground">
+          ({margem.margemPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)
+        </span>
+      )}
+    </span>
   );
 }

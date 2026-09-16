@@ -18,6 +18,9 @@ import { ImagemProduto } from "@/components/produtos/imagem-produto";
 import { ConverterPedidoBotao } from "@/components/pedidos/converter-pedido-botao";
 import { EditarPedidoDialog } from "@/components/pedidos/editar-pedido-dialog";
 import { BaixarPdfBotao } from "@/components/pedidos/baixar-pdf-botao";
+import { FinanceiroPedido } from "@/components/pedidos/financeiro-pedido";
+import { listarBancosUsados, listarLancamentosDoPedido } from "@/server/financeiro";
+import { BANCOS_SUGERIDOS } from "@/lib/financeiro";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 
@@ -31,10 +34,12 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   const isPedido = pedido.status === "PEDIDO";
   const codigoFormatado = formatarCodigo(pedido.numero);
 
-  const [cliente, todosClientes, todosProdutos] = await Promise.all([
+  const [cliente, todosClientes, todosProdutos, lancamentos, bancosUsados] = await Promise.all([
     buscarCadastro(pedido.cadastroId),
     listarCadastros("CLIENTE"),
     listarProdutos(),
+    listarLancamentosDoPedido(pedido.id),
+    listarBancosUsados(),
   ]);
 
   const opcoesClientes = todosClientes.map((c) => ({ value: c.id, label: c.nome }));
@@ -158,6 +163,12 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
           <p className="text-sm whitespace-pre-line">{pedido.observacao}</p>
         </div>
       )}
+
+      <FinanceiroPedido
+        pedido={pedido}
+        lancamentos={lancamentos}
+        sugestoesBanco={[...new Set([...bancosUsados, ...BANCOS_SUGERIDOS])]}
+      />
     </div>
   );
 }

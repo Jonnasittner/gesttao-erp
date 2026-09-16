@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LancamentoAcoes } from "@/components/financeiro/lancamento-acoes";
+import { SituacaoBadge } from "@/components/financeiro/situacao-badge";
 import { listarBancosUsados, listarLancamentos } from "@/server/financeiro";
 import {
   BANCOS_SUGERIDOS,
@@ -22,7 +23,7 @@ import {
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO, hojeISO } from "@/lib/datetime";
-import { ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
+import { ROTULOS_CATEGORIA_CUSTO, ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
 import type { Lancamento } from "@/lib/types";
 
 const FILTROS_TIPO = [
@@ -244,7 +245,10 @@ function LinhaLancamento({
         </Badge>
       </TableCell>
       <TableCell className="min-w-44 whitespace-normal">
-        <span className="font-medium">{aReceber ? l.clienteNome : l.fornecedorNome}</span>
+        <span className="font-medium">{nomeLancamento(l)}</span>
+        {!aReceber && l.categoria && l.fornecedorNome && (
+          <span className="ml-1.5 text-xs text-muted-foreground">({rotuloCategoria(l)})</span>
+        )}
         {!aReceber && l.clienteNome && (
           <span className="block text-xs text-muted-foreground">Cliente: {l.clienteNome}</span>
         )}
@@ -299,7 +303,8 @@ function CartaoLancamento({
 }) {
   const documento = rotuloDocumento(l.numeroDocumento, l.parcela, l.totalParcelas);
   const aReceber = l.tipo === "RECEBER";
-  const nome = aReceber ? l.clienteNome : l.fornecedorNome;
+  const nome = nomeLancamento(l);
+  const categoria = !aReceber && l.fornecedorNome ? rotuloCategoria(l) : "";
   const detalhes = [
     l.pedidoNumero ? `Pedido ${formatarCodigo(l.pedidoNumero)}` : "",
     l.numeroPedidoFornecedor ? `Forn. ${l.numeroPedidoFornecedor}` : "",
@@ -314,7 +319,10 @@ function CartaoLancamento({
           <Link href={`/financeiro/${l.id}`} className="font-mono text-xs text-muted-foreground hover:underline">
             {documento} · {aReceber ? "Receber" : "Pagar"}
           </Link>
-          <p className="font-medium leading-tight">{nome}</p>
+          <p className="font-medium leading-tight">
+            {nome}
+            {categoria && <span className="ml-1 text-xs font-normal text-muted-foreground">({categoria})</span>}
+          </p>
           {!aReceber && l.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {l.clienteNome}</p>}
         </div>
         <span className={`shrink-0 font-semibold tabular-nums ${aReceber ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
@@ -341,27 +349,6 @@ function CartaoLancamento({
         <LancamentoAcoes lancamento={l} documento={documento} />
       </div>
     </div>
-  );
-}
-
-function SituacaoBadge({ lancamento: l, hoje }: { lancamento: Lancamento; hoje: string }) {
-  const aReceber = l.tipo === "RECEBER";
-  if (l.status === "PAGO") return <Badge variant="secondary">{aReceber ? "Recebido" : "Pago"}</Badge>;
-  if (estaVencido(l, hoje)) {
-    return (
-      <Badge
-        variant="outline"
-        className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-      >
-        Vencido
-      </Badge>
-    );
-  }
-  if (l.vencimento === hoje) return <Badge variant="outline">Vence hoje</Badge>;
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Pendente
-    </Badge>
   );
 }
 
@@ -402,4 +389,14 @@ function BotaoFiltro({ href, ativo, children }: { href: string; ativo: boolean; 
       {children}
     </Link>
   );
+}
+
+function rotuloCategoria(l: Lancamento): string {
+  return l.categoria ? ROTULOS_CATEGORIA_CUSTO[l.categoria].replace(" (fornecedor)", "") : "";
+}
+
+/** Cliente (a receber) ou fornecedor (a pagar); custo sem fornecedor mostra o tipo (ex.: "Frete"). */
+function nomeLancamento(l: Lancamento): string {
+  if (l.tipo === "RECEBER") return l.clienteNome;
+  return l.fornecedorNome || rotuloCategoria(l) || "Custo";
 }

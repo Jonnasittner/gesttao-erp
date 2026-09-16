@@ -205,6 +205,10 @@ export const FORMA_PAGAMENTO = [
 ] as const;
 export type FormaPagamento = (typeof FORMA_PAGAMENTO)[number];
 
+/** Tipo de custo de um lançamento a pagar (para a margem do pedido). */
+export const CATEGORIA_CUSTO = ["MERCADORIA", "FRETE", "INSTALACAO", "COMISSAO", "OUTROS"] as const;
+export type CategoriaCusto = (typeof CATEGORIA_CUSTO)[number];
+
 export const STATUS_LANCAMENTO = ["PENDENTE", "PAGO"] as const;
 export type StatusLancamento = (typeof STATUS_LANCAMENTO)[number];
 
@@ -241,6 +245,8 @@ export const lancamentoSchema = z
     pedidoId: z.string().optional().or(z.literal("")),
     fornecedorId: z.string().optional().or(z.literal("")),
     numeroPedidoFornecedor: textoMaiusculoOpcional,
+    /** Só em lançamentos a pagar. */
+    categoria: z.enum(CATEGORIA_CUSTO).optional(),
     formaPagamento: z.enum(FORMA_PAGAMENTO, { error: "Selecione a forma de pagamento" }),
     valor: z.coerce.number().positive("Informe um valor maior que zero"),
     descricao: textoMaiusculoOpcional,
@@ -253,7 +259,8 @@ export const lancamentoSchema = z
     if (dados.tipo === "RECEBER" && !dados.clienteId) {
       ctx.addIssue({ code: "custom", path: ["clienteId"], message: "Selecione o cliente" });
     }
-    if (dados.tipo === "PAGAR" && !dados.fornecedorId) {
+    // Mercadoria precisa do fornecedor; frete, instalação etc. podem não ter cadastro.
+    if (dados.tipo === "PAGAR" && (dados.categoria ?? "MERCADORIA") === "MERCADORIA" && !dados.fornecedorId) {
       ctx.addIssue({ code: "custom", path: ["fornecedorId"], message: "Selecione o fornecedor" });
     }
     const soma = dados.parcelas.reduce((total, p) => total + p.valor, 0);
@@ -282,6 +289,8 @@ export interface Lancamento {
   fornecedorId: string;
   fornecedorNome: string;
   numeroPedidoFornecedor: string;
+  /** Tipo de custo (a pagar); "" em lançamentos a receber. */
+  categoria: CategoriaCusto | "";
   formaPagamento: FormaPagamento;
   /** Valor desta parcela. */
   valor: number;

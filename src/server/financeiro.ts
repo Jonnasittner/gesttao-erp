@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/firebase-admin";
 import { proximoNumero } from "@/lib/contador";
+import { formatarCodigo } from "@/lib/codigo";
+import { converterEmPedido } from "@/server/pedidos";
 import {
   type Lancamento,
   type LancamentoInput,
@@ -40,6 +42,8 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
     fornecedorId: data.fornecedorId ?? "",
     fornecedorNome: data.fornecedorNome ?? "",
     numeroPedidoFornecedor: data.numeroPedidoFornecedor ?? "",
+    // Lançamentos a pagar antigos (sem categoria) eram sempre de fornecedor.
+    categoria: data.tipo === "PAGAR" ? data.categoria ?? "MERCADORIA" : "",
     formaPagamento: data.formaPagamento,
     valor: data.valor ?? 0,
     vencimento: data.vencimento ?? "",
@@ -90,6 +94,7 @@ async function validarEMontar(input: LancamentoInput) {
     fornecedorId,
     fornecedorNome: fornecedor?.data()?.nome ?? "",
     numeroPedidoFornecedor: dados.numeroPedidoFornecedor ?? "",
+    categoria: aPagar ? dados.categoria ?? "MERCADORIA" : "",
     formaPagamento: dados.formaPagamento,
     descricao: dados.descricao ?? "",
     valorTotal: Math.round(dados.valor * 100) / 100,
@@ -131,6 +136,15 @@ export async function buscarDocumentoFinanceiro(id: string): Promise<Lancamento[
   return parcelas.map(toLancamento);
 }
 
+/** Recebimentos e custos (todas as parcelas) vinculados a um pedido. */
+export async function listarLancamentosDoPedido(pedidoId: string): Promise<Lancamento[]> {
+  await exigirSessao();
+  const snap = await lancamentos().where("pedidoId", "==", pedidoId).get();
+  return snap.docs
+    .map(toLancamento)
+    .sort((a, b) => a.numeroDocumento - b.numeroDocumento || a.parcela - b.parcela);
+}
+
 /** Bancos já usados, para sugerir no campo. */
 export async function listarBancosUsados(): Promise<string[]> {
   await exigirSessao();
@@ -139,10 +153,12 @@ export async function listarBancosUsados(): Promise<string[]> {
   return [...bancos].sort((a, b) => a.localeCompare(b));
 }
 
-export async function criarLancamento(input: LancamentoInput) {
-  const session = await exigirSessao();
+type Montado = Awaited<ReturnType<typeof validarEMontar>>;
 
-  const { comum, parcelas } = await validarEMontar(input);
+async function gravarNovoLancamento(
+  session: Awaited<ReturnType<typeof exigirSessao>>,
+  { comum, parcelas }: Montado
+) {
   const numeroDocumento = await proximoNumero("financeiro_documento");
   const agora = new Date();
 
@@ -162,6 +178,37 @@ export async function criarLancamento(input: LancamentoInput) {
 
   revalidatePath("/financeiro");
   return { numeroDocumento, totalParcelas: parcelas.length };
+}
+
+export async function criarLancamento(input: LancamentoInput) {
+  const session = await exigirSessao();
+  return gravarNovoLancamento(session, await validarEMontar(input));
+}
+
+/**
+ * "Transformar em pedido" com a condição de pagamento: valida o lançamento
+ * inteiro antes de mexer em qualquer coisa, converte o orçamento e grava o
+ * lançamento a receber vinculado a ele.
+ */
+export async function converterPedidoComLancamento(pedidoId: string, input: LancamentoInput) {
+  const session = await exigirSessao();
+
+  const pedido = await db.collection("pedidos").doc(pedidoId).get();
+  if (!pedido.exists) throw new Error("Orçamento não encontrado.");
+  if (pedido.data()!.status === "PEDIDO") {
+    throw new Error(`O orçamento ${formatarCodigo(pedido.data()!.numero)} já foi transformado em pedido.`);
+  }
+  if (input.tipo !== "RECEBER" || input.pedidoId !== pedidoId) {
+    throw new Error("O lançamento precisa ser a receber e vinculado a este pedido.");
+  }
+
+  const montado = await validarEMontar(input);
+  await converterEmPedido(pedidoId);
+  const resultado = await gravarNovoLancamento(session, montado);
+
+  revalidatePath("/pedidos");
+  revalidatePath(`/pedidos/${pedidoId}`);
+  return resultado;
 }
 
 /**

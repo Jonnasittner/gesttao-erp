@@ -83,6 +83,9 @@ export async function converterEmPedido(id: string) {
 
   const pedido = await buscarPedido(id);
   if (!pedido) throw new Error("Pedido não encontrado");
+  if (pedido.status === "PEDIDO") {
+    throw new Error(`O orçamento ${formatarCodigo(pedido.numero)} já foi transformado em pedido.`);
+  }
 
   const now = new Date();
 

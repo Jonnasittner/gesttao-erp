@@ -4,6 +4,7 @@
 // Component (o Next.js só garante o boundary para o próprio componente).
 
 import type {
+  CATEGORIA_CUSTO,
   ETAPA_ATENDIMENTO,
   FORMA_PAGAMENTO,
   TIPO_CADASTRO,
@@ -63,4 +64,12 @@ export const ROTULOS_FORMA_PAGAMENTO: Record<(typeof FORMA_PAGAMENTO)[number], s
   CARTAO_DEBITO: "Cartão de débito",
   TRANSFERENCIA: "Transferência",
   CHEQUE: "Cheque",
+};
+
+export const ROTULOS_CATEGORIA_CUSTO: Record<(typeof CATEGORIA_CUSTO)[number], string> = {
+  MERCADORIA: "Mercadoria (fornecedor)",
+  FRETE: "Frete",
+  INSTALACAO: "Instalação",
+  COMISSAO: "Comissão",
+  OUTROS: "Outros",
 };

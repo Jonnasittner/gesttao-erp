@@ -3,7 +3,7 @@
 
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
-import type { Lancamento } from "@/lib/types";
+import type { CategoriaCusto, Lancamento } from "@/lib/types";
 
 /** Rótulo do pedido no seletor: "Pedido 0012 · R$ 1.200,00". */
 export function rotuloPedido(numero: number, status: string, total: number): string {
@@ -117,3 +117,59 @@ export const BANCOS_SUGERIDOS = [
   "STONE",
   "CAIXA DA EMPRESA (DINHEIRO)",
 ];
+
+// ---------------------------------------------------------------------------
+// Margem por pedido
+// ---------------------------------------------------------------------------
+
+export interface MargemPedido {
+  /** Base da margem: soma dos recebimentos lançados, ou o total do pedido se ainda não houver. */
+  receita: number;
+  receitaDoFinanceiro: boolean;
+  recebido: number;
+  custos: number;
+  pago: number;
+  margem: number;
+  /** Margem sobre a receita, em %. null quando não há receita. */
+  margemPercentual: number | null;
+  custosPorCategoria: Partial<Record<CategoriaCusto, number>>;
+}
+
+export function calcularMargemPedido(totalPedido: number, lancamentosDoPedido: Lancamento[]): MargemPedido {
+  let recebimentos = 0;
+  let recebido = 0;
+  let custos = 0;
+  let pago = 0;
+  const custosPorCategoria: Partial<Record<CategoriaCusto, number>> = {};
+
+  for (const l of lancamentosDoPedido) {
+    if (l.tipo === "RECEBER") {
+      recebimentos += l.valor;
+      if (l.status === "PAGO") recebido += l.valor;
+    } else {
+      custos += l.valor;
+      if (l.status === "PAGO") pago += l.valor;
+      const categoria = l.categoria || "MERCADORIA";
+      custosPorCategoria[categoria] = (custosPorCategoria[categoria] ?? 0) + l.valor;
+    }
+  }
+
+  const receitaDoFinanceiro = recebimentos > 0;
+  const receita = receitaDoFinanceiro ? recebimentos : totalPedido;
+  const margem = receita - custos;
+
+  return {
+    receita: arredondar(receita),
+    receitaDoFinanceiro,
+    recebido: arredondar(recebido),
+    custos: arredondar(custos),
+    pago: arredondar(pago),
+    margem: arredondar(margem),
+    margemPercentual: receita > 0 ? (margem / receita) * 100 : null,
+    custosPorCategoria,
+  };
+}
+
+function arredondar(valor: number): number {
+  return Math.round(valor * 100) / 100;
+}

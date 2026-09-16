@@ -1,11 +1,6 @@
-"use client";
-
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import Link from "next/link";
 import { CheckCircle2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { converterEmPedido } from "@/server/pedidos";
 
 interface ConverterPedidoBotaoProps {
   id: string;
@@ -15,6 +10,10 @@ interface ConverterPedidoBotaoProps {
   showText?: boolean;
 }
 
+/**
+ * Leva para a tela de condição de pagamento (lançamento financeiro já
+ * preenchido); a conversão em pedido acontece ao salvar lá.
+ */
 export function ConverterPedidoBotao({
   id,
   numero,
@@ -22,34 +21,20 @@ export function ConverterPedidoBotao({
   size = "sm",
   showText = true,
 }: ConverterPedidoBotaoProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
-  function handleConverter() {
-    if (!confirm(`Transformar o orçamento ${numero} em pedido?`)) return;
-    startTransition(async () => {
-      try {
-        await converterEmPedido(id);
-        toast.success(`Orçamento ${numero} transformado em pedido e enviado ao CRM!`);
-        router.refresh();
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro ao converter orçamento em pedido.");
-      }
-    });
-  }
-
   return (
     <Button
-      type="button"
       variant={variant}
       size={size}
+      nativeButton={false}
       aria-label={`Transformar orçamento ${numero} em pedido`}
-      disabled={isPending}
-      onClick={handleConverter}
+      title="Transformar em pedido"
       className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
-    >
-      <CheckCircle2Icon className="size-4" />
-      {showText && <span>{isPending ? "Convertendo..." : "Transformar em Pedido"}</span>}
-    </Button>
+      render={
+        <Link href={`/financeiro/novo?converterPedido=${id}`}>
+          <CheckCircle2Icon className="size-4" />
+          {showText && <span>Transformar em Pedido</span>}
+        </Link>
+      }
+    />
   );
 }

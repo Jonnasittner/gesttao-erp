@@ -22,7 +22,16 @@ import { formatarMoeda } from "@/lib/moeda";
 import { ID_LISTA_BANCOS } from "@/lib/financeiro";
 import type { Lancamento } from "@/lib/types";
 
-export function LancamentoAcoes({ lancamento, documento }: { lancamento: Lancamento; documento: string }) {
+export function LancamentoAcoes({
+  lancamento,
+  documento,
+  voltarPara,
+}: {
+  lancamento: Lancamento;
+  documento: string;
+  /** Tela para onde a edição volta ao salvar (ex.: a do pedido). */
+  voltarPara?: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [confirmando, setConfirmando] = useState(false);
@@ -111,7 +120,7 @@ export function LancamentoAcoes({ lancamento, documento }: { lancamento: Lancame
         nativeButton={false}
         aria-label={`Editar ${documento}`}
         render={
-          <Link href={`/financeiro/${lancamento.id}`}>
+          <Link href={`/financeiro/${lancamento.id}${voltarPara ? `?voltar=${voltarPara}` : ""}`}>
             <PencilIcon />
           </Link>
         }

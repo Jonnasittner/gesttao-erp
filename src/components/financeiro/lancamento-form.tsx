@@ -24,16 +24,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { atualizarLancamento, criarLancamento } from "@/server/financeiro";
+import { atualizarLancamento, converterPedidoComLancamento, criarLancamento } from "@/server/financeiro";
+import { converterEmPedido } from "@/server/pedidos";
 import {
+  CATEGORIA_CUSTO,
   FORMA_PAGAMENTO,
   MAX_PARCELAS,
+  type CategoriaCusto,
   lancamentoSchema,
   type FormaPagamento,
   type Lancamento,
   type TipoLancamento,
 } from "@/lib/types";
-import { ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
+import { ROTULOS_CATEGORIA_CUSTO, ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 import { hojeISO } from "@/lib/datetime";
@@ -55,6 +58,22 @@ interface LancamentoFormProps {
   bancosUsados: string[];
   /** Presente = edição (todas as parcelas do documento, em ordem). */
   parcelasSalvas?: Lancamento[];
+  /** Lançamento aberto a partir de um pedido (cliente, pedido e tipo ficam travados). */
+  vinculo?: VinculoPedido;
+  /** Para onde voltar depois de salvar/cancelar na edição. */
+  voltarPara?: string;
+}
+
+export interface VinculoPedido {
+  pedidoId: string;
+  numero: number;
+  total: number;
+  clienteId: string;
+  clienteNome: string;
+  tipo: TipoLancamento;
+  /** true = "Transformar em pedido": salvar também converte o orçamento. */
+  converter: boolean;
+  categoria?: CategoriaCusto;
 }
 
 /** Uma linha da simulação de parcelas. */
@@ -92,8 +111,8 @@ function montarParcelas(total: number, quantidade: number, primeiroVencimento: s
   });
 }
 
-function parcelasIniciais(salvas: Lancamento[] | undefined): ParcelaForm[] {
-  if (!salvas?.length) return montarParcelas(0, 1, hojeISO(), []);
+function parcelasIniciais(salvas: Lancamento[] | undefined, totalInicial = 0): ParcelaForm[] {
+  if (!salvas?.length) return montarParcelas(totalInicial, 1, hojeISO(), []);
   const primeiro = salvas[0].vencimento;
   return salvas.map((p, i) => ({
     chave: p.id,
@@ -107,18 +126,32 @@ function parcelasIniciais(salvas: Lancamento[] | undefined): ParcelaForm[] {
   }));
 }
 
-export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, parcelasSalvas }: LancamentoFormProps) {
+export function LancamentoForm({
+  clientes,
+  fornecedores,
+  pedidos,
+  bancosUsados,
+  parcelasSalvas,
+  vinculo,
+  voltarPara: voltarEdicao,
+}: LancamentoFormProps) {
   const router = useRouter();
   const base = parcelasSalvas?.[0];
   const editando = !!base;
   const [isPending, startTransition] = useTransition();
 
-  const [tipo, setTipo] = useState<TipoLancamento>(base?.tipo ?? "RECEBER");
+  const [tipo, setTipo] = useState<TipoLancamento>(vinculo?.tipo ?? base?.tipo ?? "RECEBER");
+  const [categoria, setCategoria] = useState<CategoriaCusto>(
+    base?.categoria || vinculo?.categoria || "MERCADORIA"
+  );
+  const clienteIdInicial = vinculo?.clienteId ?? base?.clienteId;
   const [cliente, setCliente] = useState<CadastroOpcao | null>(
-    () => clientes.find((c) => c.value === base?.clienteId) ?? opcaoSalva(base?.clienteId, base?.clienteNome)
+    () =>
+      clientes.find((c) => c.value === clienteIdInicial) ??
+      opcaoSalva(clienteIdInicial, vinculo?.clienteNome ?? base?.clienteNome)
   );
   const [pedido, setPedido] = useState<PedidoOpcao | null>(
-    () => pedidos.find((p) => p.value === base?.pedidoId) ?? null
+    () => pedidos.find((p) => p.value === (vinculo?.pedidoId ?? base?.pedidoId)) ?? null
   );
   const [fornecedor, setFornecedor] = useState<CadastroOpcao | null>(
     () =>
@@ -128,12 +161,15 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(base?.formaPagamento ?? null);
   const [descricao, setDescricao] = useState(base?.descricao ?? "");
 
-  const [valor, setValor] = useState(base ? String(base.valorTotal) : "");
+  // Recebimento de um pedido já começa com o total dele; custo começa vazio.
+  const totalInicial = vinculo?.tipo === "RECEBER" ? vinculo.total : 0;
+  const [valor, setValor] = useState(base ? String(base.valorTotal) : totalInicial ? String(totalInicial) : "");
   const [quantidade, setQuantidade] = useState(String(parcelasSalvas?.length || 1));
   const [primeiroVencimento, setPrimeiroVencimento] = useState(base?.vencimento ?? hojeISO());
-  const [parcelas, setParcelas] = useState<ParcelaForm[]>(() => parcelasIniciais(parcelasSalvas));
+  const [parcelas, setParcelas] = useState<ParcelaForm[]>(() => parcelasIniciais(parcelasSalvas, totalInicial));
 
   const aReceber = tipo === "RECEBER";
+  const destino = vinculo ? `/pedidos/${vinculo.pedidoId}` : voltarEdicao || "/financeiro";
   const pedidosDoCliente = useMemo(
     () => (cliente ? pedidos.filter((p) => p.cadastroId === cliente.value) : []),
     [cliente, pedidos]
@@ -207,6 +243,7 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
       clienteId: cliente?.value ?? "",
       pedidoId: pedido?.value ?? "",
       fornecedorId: aReceber ? "" : fornecedor?.value ?? "",
+      categoria: aReceber ? undefined : categoria,
       numeroPedidoFornecedor,
       formaPagamento: formaPagamento ?? undefined,
       valor,
@@ -228,6 +265,15 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
 
     startTransition(async () => {
       try {
+        if (vinculo?.converter) {
+          const { numeroDocumento } = await converterPedidoComLancamento(vinculo.pedidoId, parsed.data);
+          toast.success(
+            `Orçamento ${formatarCodigo(vinculo.numero)} transformado em pedido. Lançamento ${formatarCodigo(numeroDocumento)} criado.`
+          );
+          router.push(destino);
+          router.refresh();
+          return;
+        }
         if (editando) {
           await atualizarLancamento(base.id, parsed.data);
           toast.success(`Lançamento ${formatarCodigo(base.numeroDocumento)} atualizado.`);
@@ -237,13 +283,30 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
             `Lançamento ${formatarCodigo(numeroDocumento)} criado${totalParcelas > 1 ? ` em ${totalParcelas} parcelas` : ""}.`
           );
         }
-        router.push("/financeiro");
+        router.push(destino);
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erro ao salvar lançamento.");
       }
     });
   }
+
+  function gerarSemLancamento() {
+    if (!vinculo?.converter) return;
+    const codigo = formatarCodigo(vinculo.numero);
+    if (!confirm(`Transformar o orçamento ${codigo} em pedido sem lançar no financeiro?`)) return;
+    startTransition(async () => {
+      try {
+        await converterEmPedido(vinculo.pedidoId);
+        toast.success(`Orçamento ${codigo} transformado em pedido.`);
+        router.push(destino);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao transformar em pedido.");
+      }
+    });
+  }
+
 
   return (
     <form onSubmit={handleSubmit} className="flex max-w-3xl flex-col gap-5">
@@ -252,6 +315,7 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
         <BotaoTipo
           ativo={aReceber}
           onClick={() => setTipo("RECEBER")}
+          desabilitado={!!vinculo && vinculo.tipo !== "RECEBER"}
           icone={<ArrowDownCircle className="size-5" />}
           titulo="A receber"
           subtitulo="Entrada de cliente"
@@ -260,6 +324,7 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
         <BotaoTipo
           ativo={!aReceber}
           onClick={() => setTipo("PAGAR")}
+          desabilitado={!!vinculo && vinculo.tipo !== "PAGAR"}
           icone={<ArrowUpCircle className="size-5" />}
           titulo="A pagar"
           subtitulo="Saída para fornecedor"
@@ -267,17 +332,37 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
         />
       </div>
 
-      {/* Fornecedor (só a pagar) */}
+      {/* Tipo de custo e fornecedor (só a pagar) */}
       {!aReceber && (
-        <Campo label="Fornecedor">
-          <SeletorCadastro
-            opcoes={fornecedores}
-            valor={fornecedor}
-            onChange={setFornecedor}
-            placeholder="Buscar fornecedor..."
-            vazio="Nenhum fornecedor cadastrado com esse nome."
-          />
-        </Campo>
+        <div className="grid gap-3 sm:grid-cols-[14rem_1fr]">
+          <Campo label="Tipo de custo">
+            <Select
+              value={categoria}
+              items={ROTULOS_CATEGORIA_CUSTO}
+              onValueChange={(v) => v && setCategoria(v as CategoriaCusto)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIA_CUSTO.map((opcao) => (
+                  <SelectItem key={opcao} value={opcao}>
+                    {ROTULOS_CATEGORIA_CUSTO[opcao]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Campo>
+          <Campo label={categoria === "MERCADORIA" ? "Fornecedor" : "Fornecedor / prestador (opcional)"}>
+            <SeletorCadastro
+              opcoes={fornecedores}
+              valor={fornecedor}
+              onChange={setFornecedor}
+              placeholder="Buscar fornecedor..."
+              vazio="Nenhum fornecedor cadastrado com esse nome."
+            />
+          </Campo>
+        </div>
       )}
 
       {/* Cliente, pedido e pedido do fornecedor (este vale para os dois tipos) */}
@@ -287,6 +372,7 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
             opcoes={clientes}
             valor={cliente}
             onChange={escolherCliente}
+            desabilitado={!!vinculo}
             placeholder="Buscar cliente..."
             vazio="Nenhum cliente encontrado."
           />
@@ -296,12 +382,12 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
             items={pedidosDoCliente}
             value={pedido}
             onValueChange={(v) => escolherPedido(v)}
-            disabled={!cliente}
+            disabled={!cliente || !!vinculo}
           >
             <ComboboxInput
               placeholder={cliente ? "Buscar pedido..." : "Escolha o cliente primeiro"}
-              showClear
-              disabled={!cliente}
+              showClear={!vinculo}
+              disabled={!cliente || !!vinculo}
             />
             <ComboboxContent>
               <ComboboxEmpty>Esse cliente não tem pedidos.</ComboboxEmpty>
@@ -464,12 +550,31 @@ export function LancamentoForm({ clientes, fornecedores, pedidos, bancosUsados, 
         />
       </Campo>
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button type="button" variant="outline" onClick={() => router.push("/financeiro")}>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+        {vinculo?.converter && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPending}
+            onClick={gerarSemLancamento}
+            className="text-muted-foreground sm:mr-auto"
+          >
+            Gerar pedido sem lançamento financeiro
+          </Button>
+        )}
+        <Button type="button" variant="outline" onClick={() => router.push(destino)}>
           Cancelar
         </Button>
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Salvando..." : editando ? "Salvar alterações" : "Salvar lançamento"}
+          {isPending
+            ? "Salvando..."
+            : vinculo?.converter
+              ? "Gerar pedido"
+              : editando
+                ? "Salvar alterações"
+                : vinculo?.tipo === "PAGAR"
+                  ? "Salvar custo"
+                  : "Salvar lançamento"}
         </Button>
       </div>
     </form>
@@ -496,16 +601,18 @@ function SeletorCadastro({
   onChange,
   placeholder,
   vazio,
+  desabilitado = false,
 }: {
   opcoes: CadastroOpcao[];
   valor: CadastroOpcao | null;
   onChange: (v: CadastroOpcao | null) => void;
   placeholder: string;
   vazio: string;
+  desabilitado?: boolean;
 }) {
   return (
-    <Combobox items={opcoes} value={valor} onValueChange={(v) => onChange(v)}>
-      <ComboboxInput placeholder={placeholder} showClear />
+    <Combobox items={opcoes} value={valor} onValueChange={(v) => onChange(v)} disabled={desabilitado}>
+      <ComboboxInput placeholder={placeholder} showClear={!desabilitado} disabled={desabilitado} />
       <ComboboxContent>
         <ComboboxEmpty>{vazio}</ComboboxEmpty>
         <ComboboxList>
@@ -527,7 +634,9 @@ function BotaoTipo({
   titulo,
   subtitulo,
   cor,
+  desabilitado = false,
 }: {
+  desabilitado?: boolean;
   ativo: boolean;
   onClick: () => void;
   icone: React.ReactNode;
@@ -544,8 +653,9 @@ function BotaoTipo({
     <button
       type="button"
       onClick={onClick}
+      disabled={desabilitado}
       aria-pressed={ativo}
-      className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors ${
+      className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         ativo ? classesAtivo : "border-muted text-muted-foreground hover:bg-accent"
       }`}
     >
