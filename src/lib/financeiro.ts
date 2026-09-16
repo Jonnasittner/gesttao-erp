@@ -59,3 +59,61 @@ export function calcularResumo(lista: Lancamento[], hoje: string): ResumoFinance
   resumo.saldoPrevisto = resumo.aReceber - resumo.aPagar;
   return resumo;
 }
+
+// ---------------------------------------------------------------------------
+// Parcelas
+// ---------------------------------------------------------------------------
+
+/**
+ * Divide o total em parcelas com centavos exatos: a sobra da divisão vai para
+ * as primeiras parcelas (ex.: R$ 100,00 em 3 → 33,34 + 33,33 + 33,33).
+ */
+export function dividirValor(total: number, parcelas: number): number[] {
+  const centavos = Math.round(total * 100);
+  const base = Math.floor(centavos / parcelas);
+  const sobra = centavos - base * parcelas;
+  return Array.from({ length: parcelas }, (_, i) => (base + (i < sobra ? 1 : 0)) / 100);
+}
+
+/**
+ * Soma meses a uma data "AAAA-MM-DD" mantendo o dia; se o mês não tem esse dia,
+ * usa o último (31/01 + 1 mês = 28/02 ou 29/02).
+ */
+export function somarMeses(dataISO: string, meses: number): string {
+  const [ano, mes, dia] = dataISO.split("-").map(Number);
+  if (!ano || !mes || !dia) return dataISO;
+  const alvo = new Date(Date.UTC(ano, mes - 1 + meses, 1));
+  const ultimoDia = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+  alvo.setUTCDate(Math.min(dia, ultimoDia));
+  return alvo.toISOString().slice(0, 10);
+}
+
+/** "0001 · 2/3" (ou só "0001" quando é parcela única). */
+export function rotuloDocumento(numeroDocumento: number, parcela: number, totalParcelas: number): string {
+  const documento = formatarCodigo(numeroDocumento);
+  return totalParcelas > 1 ? `${documento} · ${parcela}/${totalParcelas}` : documento;
+}
+
+/** Id do <datalist> com as sugestões de banco (um por página). */
+export const ID_LISTA_BANCOS = "bancos-sugeridos";
+
+/** Sugestões no campo banco (aceita qualquer outro nome digitado). */
+export const BANCOS_SUGERIDOS = [
+  "BANCO DO BRASIL",
+  "BRADESCO",
+  "CAIXA",
+  "ITAÚ",
+  "SANTANDER",
+  "NUBANK",
+  "INTER",
+  "SICREDI",
+  "SICOOB",
+  "C6 BANK",
+  "BTG PACTUAL",
+  "BANRISUL",
+  "MERCADO PAGO",
+  "PAGBANK",
+  "CORA",
+  "STONE",
+  "CAIXA DA EMPRESA (DINHEIRO)",
+];

@@ -1,5 +1,6 @@
 import { listarCadastros } from "@/server/cadastros";
 import { listarPedidos } from "@/server/pedidos";
+import { listarBancosUsados } from "@/server/financeiro";
 import { rotuloPedido } from "@/lib/financeiro";
 import type { CadastroOpcao, PedidoOpcao } from "@/components/financeiro/lancamento-form";
 
@@ -8,11 +9,13 @@ export async function carregarOpcoesLancamento(): Promise<{
   clientes: CadastroOpcao[];
   fornecedores: CadastroOpcao[];
   pedidos: PedidoOpcao[];
+  bancosUsados: string[];
 }> {
-  const [clientes, fornecedores, pedidos] = await Promise.all([
+  const [clientes, fornecedores, pedidos, bancosUsados] = await Promise.all([
     listarCadastros("CLIENTE"),
     listarCadastros("FORNECEDOR"),
     listarPedidos(),
+    listarBancosUsados(),
   ]);
 
   const porNome = (a: CadastroOpcao, b: CadastroOpcao) => a.label.localeCompare(b.label);
@@ -26,5 +29,6 @@ export async function carregarOpcoesLancamento(): Promise<{
       cadastroId: p.cadastroId,
       total: p.total,
     })),
+    bancosUsados,
   };
 }

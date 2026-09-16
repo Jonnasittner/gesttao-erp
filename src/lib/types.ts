@@ -210,9 +210,29 @@ export type StatusLancamento = (typeof STATUS_LANCAMENTO)[number];
 
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
+export const MAX_PARCELAS = 48;
+
+/** Uma parcela da simulação. `id` vem preenchido só na edição (documento já salvo). */
+export const parcelaSchema = z
+  .object({
+    id: z.string().optional().or(z.literal("")),
+    vencimento: z.string().regex(DATA_ISO, "Informe o vencimento de todas as parcelas"),
+    valor: z.coerce.number().positive("Todas as parcelas precisam ter valor maior que zero"),
+    status: z.enum(STATUS_LANCAMENTO).default("PENDENTE"),
+    dataPagamento: z.string().regex(DATA_ISO).optional().or(z.literal("")),
+    banco: textoMaiusculoOpcional,
+  })
+  .superRefine((parcela, ctx) => {
+    if (parcela.status === "PAGO" && !parcela.dataPagamento) {
+      ctx.addIssue({ code: "custom", path: ["dataPagamento"], message: "Informe a data das parcelas recebidas/pagas" });
+    }
+  });
+export type ParcelaInput = z.infer<typeof parcelaSchema>;
+
 /**
  * O que o formulário envia. Nomes de cliente/fornecedor e número do pedido
  * não vêm daqui: o servidor busca pelos ids, para não gravar dado adulterado.
+ * Cada parcela vira um documento em "lancamentos" com o mesmo numeroDocumento.
  */
 export const lancamentoSchema = z
   .object({
@@ -223,10 +243,11 @@ export const lancamentoSchema = z
     numeroPedidoFornecedor: textoMaiusculoOpcional,
     formaPagamento: z.enum(FORMA_PAGAMENTO, { error: "Selecione a forma de pagamento" }),
     valor: z.coerce.number().positive("Informe um valor maior que zero"),
-    vencimento: z.string().regex(DATA_ISO, "Informe a data de vencimento"),
-    status: z.enum(STATUS_LANCAMENTO).default("PENDENTE"),
-    dataPagamento: z.string().regex(DATA_ISO).optional().or(z.literal("")),
     descricao: textoMaiusculoOpcional,
+    parcelas: z
+      .array(parcelaSchema)
+      .min(1, "Informe ao menos uma parcela")
+      .max(MAX_PARCELAS, `No máximo ${MAX_PARCELAS} parcelas`),
   })
   .superRefine((dados, ctx) => {
     if (dados.tipo === "RECEBER" && !dados.clienteId) {
@@ -235,16 +256,23 @@ export const lancamentoSchema = z
     if (dados.tipo === "PAGAR" && !dados.fornecedorId) {
       ctx.addIssue({ code: "custom", path: ["fornecedorId"], message: "Selecione o fornecedor" });
     }
-    if (dados.status === "PAGO" && !dados.dataPagamento) {
-      ctx.addIssue({ code: "custom", path: ["dataPagamento"], message: "Informe a data do pagamento" });
+    const soma = dados.parcelas.reduce((total, p) => total + p.valor, 0);
+    if (Math.abs(soma - dados.valor) > 0.009) {
+      ctx.addIssue({ code: "custom", path: ["parcelas"], message: "A soma das parcelas não bate com o valor total" });
     }
   });
 export type LancamentoInput = z.infer<typeof lancamentoSchema>;
 
+/** Um documento de "lancamentos" = uma parcela. */
 export interface Lancamento {
   id: string;
-  /** Nº do documento gerado pelo sistema (1, 2, 3...). */
+  /** Nº do documento gerado pelo sistema (1, 2, 3...), igual em todas as parcelas. */
   numeroDocumento: number;
+  /** 1, 2, 3... */
+  parcela: number;
+  totalParcelas: number;
+  /** Valor do documento inteiro (soma das parcelas). */
+  valorTotal: number;
   tipo: TipoLancamento;
   clienteId: string;
   clienteNome: string;
@@ -255,11 +283,14 @@ export interface Lancamento {
   fornecedorNome: string;
   numeroPedidoFornecedor: string;
   formaPagamento: FormaPagamento;
+  /** Valor desta parcela. */
   valor: number;
   /** "AAAA-MM-DD" (sem horário, para não trocar o dia por fuso). */
   vencimento: string;
   status: StatusLancamento;
   dataPagamento: string;
+  /** Banco onde foi recebido/pago. */
+  banco: string;
   descricao: string;
   usuarioNome: string | null;
   createdAt: string;

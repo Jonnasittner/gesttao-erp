@@ -11,8 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LancamentoAcoes } from "@/components/financeiro/lancamento-acoes";
-import { listarLancamentos } from "@/server/financeiro";
-import { calcularResumo, estaVencido } from "@/lib/financeiro";
+import { listarBancosUsados, listarLancamentos } from "@/server/financeiro";
+import {
+  BANCOS_SUGERIDOS,
+  ID_LISTA_BANCOS,
+  calcularResumo,
+  estaVencido,
+  rotuloDocumento,
+} from "@/lib/financeiro";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO, hojeISO } from "@/lib/datetime";
@@ -45,7 +51,7 @@ export default async function FinanceiroPage({
   const status = (FILTROS_STATUS.find((f) => f.valor === params.status)?.valor ?? "") as FiltroStatus;
 
   const hoje = hojeISO();
-  const todos = await listarLancamentos();
+  const [todos, bancosUsados] = await Promise.all([listarLancamentos(), listarBancosUsados()]);
   const resumo = calcularResumo(todos, hoje);
 
   const lista = todos.filter((l) => {
@@ -86,6 +92,13 @@ export default async function FinanceiroPage({
           }
         />
       </div>
+
+      {/* Sugestões do campo banco na janela "Recebido/Pago" */}
+      <datalist id={ID_LISTA_BANCOS}>
+        {[...new Set([...bancosUsados, ...BANCOS_SUGERIDOS])].map((banco) => (
+          <option key={banco} value={banco} />
+        ))}
+      </datalist>
 
       {/* Resumo */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -207,14 +220,14 @@ function LinhaLancamento({
   hoje: string;
   mostrarPagamento: boolean;
 }) {
-  const documento = formatarCodigo(l.numeroDocumento);
+  const documento = rotuloDocumento(l.numeroDocumento, l.parcela, l.totalParcelas);
   const aReceber = l.tipo === "RECEBER";
   const vencido = estaVencido(l, hoje);
 
   return (
     <TableRow>
       <TableCell>
-        <Link href={`/financeiro/${l.id}`} className="font-mono font-medium hover:underline">
+        <Link href={`/financeiro/${l.id}`} className="whitespace-nowrap font-mono font-medium hover:underline">
           {documento}
         </Link>
       </TableCell>
@@ -249,7 +262,12 @@ function LinhaLancamento({
           <span className="block text-xs text-muted-foreground">Forn.: {l.numeroPedidoFornecedor}</span>
         )}
       </TableCell>
-      <TableCell className="text-sm">{ROTULOS_FORMA_PAGAMENTO[l.formaPagamento] ?? "—"}</TableCell>
+      <TableCell className="text-sm">
+        {ROTULOS_FORMA_PAGAMENTO[l.formaPagamento] ?? "—"}
+        {l.status === "PAGO" && l.banco && (
+          <span className="block text-xs text-muted-foreground">{l.banco}</span>
+        )}
+      </TableCell>
       <TableCell className={`text-sm ${vencido ? "font-semibold text-amber-600 dark:text-amber-400" : ""}`}>
         {formatarDataISO(mostrarPagamento ? l.dataPagamento : l.vencimento)}
       </TableCell>
@@ -279,13 +297,14 @@ function CartaoLancamento({
   hoje: string;
   mostrarPagamento: boolean;
 }) {
-  const documento = formatarCodigo(l.numeroDocumento);
+  const documento = rotuloDocumento(l.numeroDocumento, l.parcela, l.totalParcelas);
   const aReceber = l.tipo === "RECEBER";
   const nome = aReceber ? l.clienteNome : l.fornecedorNome;
   const detalhes = [
     l.pedidoNumero ? `Pedido ${formatarCodigo(l.pedidoNumero)}` : "",
     l.numeroPedidoFornecedor ? `Forn. ${l.numeroPedidoFornecedor}` : "",
     ROTULOS_FORMA_PAGAMENTO[l.formaPagamento] ?? "",
+    l.status === "PAGO" ? l.banco : "",
   ].filter(Boolean);
 
   return (

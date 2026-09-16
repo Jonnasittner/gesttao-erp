@@ -10,6 +10,10 @@ import {
   lancamentoSchema,
 } from "@/lib/types";
 
+// Cada parcela é um documento em "lancamentos"; as parcelas de um mesmo
+// lançamento compartilham o numeroDocumento. Lançamentos antigos (antes do
+// parcelamento) não têm os campos de parcela e são lidos como 1/1.
+
 function lancamentos() {
   return db.collection("lancamentos");
 }
@@ -25,6 +29,9 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
   return {
     id: doc.id,
     numeroDocumento: data.numeroDocumento ?? 0,
+    parcela: data.parcela ?? 1,
+    totalParcelas: data.totalParcelas ?? 1,
+    valorTotal: data.valorTotal ?? data.valor ?? 0,
     tipo: data.tipo,
     clienteId: data.clienteId ?? "",
     clienteNome: data.clienteNome ?? "",
@@ -38,6 +45,7 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
     vencimento: data.vencimento ?? "",
     status: data.status ?? "PENDENTE",
     dataPagamento: data.dataPagamento ?? "",
+    banco: data.banco ?? "",
     descricao: data.descricao ?? "",
     usuarioNome: data.usuarioNome ?? null,
     createdAt: data.createdAt?.toDate?.().toISOString() ?? "",
@@ -46,11 +54,11 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
 }
 
 /**
- * Valida o formulário e completa com os dados que vêm do banco (nomes e nº do
- * pedido), em vez de confiar no que o navegador mandou. Campos que não se
- * aplicam ao tipo são limpos (ex.: fornecedor num lançamento a receber).
+ * Valida o formulário e monta os dados comuns a todas as parcelas, buscando no
+ * banco os nomes e o nº do pedido em vez de confiar no que o navegador mandou.
+ * Campos que não se aplicam ao tipo são limpos (ex.: fornecedor a receber).
  */
-async function montarDocumento(input: LancamentoInput) {
+async function validarEMontar(input: LancamentoInput) {
   const dados = lancamentoSchema.parse(input);
   const aPagar = dados.tipo === "PAGAR";
 
@@ -73,7 +81,7 @@ async function montarDocumento(input: LancamentoInput) {
     }
   }
 
-  return {
+  const comum = {
     tipo: dados.tipo,
     clienteId,
     clienteNome: cliente?.data()?.nome ?? "",
@@ -81,14 +89,31 @@ async function montarDocumento(input: LancamentoInput) {
     pedidoNumero: pedido?.data()?.numero ?? 0,
     fornecedorId,
     fornecedorNome: fornecedor?.data()?.nome ?? "",
-    numeroPedidoFornecedor: aPagar ? dados.numeroPedidoFornecedor ?? "" : "",
+    numeroPedidoFornecedor: dados.numeroPedidoFornecedor ?? "",
     formaPagamento: dados.formaPagamento,
-    valor: dados.valor,
-    vencimento: dados.vencimento,
-    status: dados.status,
-    dataPagamento: dados.status === "PAGO" ? dados.dataPagamento ?? "" : "",
     descricao: dados.descricao ?? "",
+    valorTotal: Math.round(dados.valor * 100) / 100,
+    totalParcelas: dados.parcelas.length,
   };
+
+  const parcelas = dados.parcelas.map((p, indice) => ({
+    id: p.id || "",
+    campos: {
+      parcela: indice + 1,
+      valor: Math.round(p.valor * 100) / 100,
+      vencimento: p.vencimento,
+      status: p.status,
+      dataPagamento: p.status === "PAGO" ? p.dataPagamento ?? "" : "",
+      banco: p.status === "PAGO" ? p.banco ?? "" : "",
+    },
+  }));
+
+  return { comum, parcelas };
+}
+
+async function buscarParcelasDoDocumento(numeroDocumento: number) {
+  const snap = await lancamentos().where("numeroDocumento", "==", numeroDocumento).get();
+  return snap.docs.sort((a, b) => (a.data().parcela ?? 1) - (b.data().parcela ?? 1));
 }
 
 export async function listarLancamentos(): Promise<Lancamento[]> {
@@ -97,44 +122,104 @@ export async function listarLancamentos(): Promise<Lancamento[]> {
   return snap.docs.map(toLancamento);
 }
 
-export async function buscarLancamento(id: string): Promise<Lancamento | null> {
+/** Todas as parcelas do documento a que pertence a parcela `id`. */
+export async function buscarDocumentoFinanceiro(id: string): Promise<Lancamento[] | null> {
   await exigirSessao();
   const doc = await lancamentos().doc(id).get();
-  return doc.exists ? toLancamento(doc) : null;
+  if (!doc.exists) return null;
+  const parcelas = await buscarParcelasDoDocumento(doc.data()!.numeroDocumento);
+  return parcelas.map(toLancamento);
+}
+
+/** Bancos já usados, para sugerir no campo. */
+export async function listarBancosUsados(): Promise<string[]> {
+  await exigirSessao();
+  const snap = await lancamentos().where("status", "==", "PAGO").get();
+  const bancos = new Set(snap.docs.map((d) => (d.data().banco as string | undefined) ?? "").filter(Boolean));
+  return [...bancos].sort((a, b) => a.localeCompare(b));
 }
 
 export async function criarLancamento(input: LancamentoInput) {
   const session = await exigirSessao();
 
-  const documento = await montarDocumento(input);
+  const { comum, parcelas } = await validarEMontar(input);
   const numeroDocumento = await proximoNumero("financeiro_documento");
   const agora = new Date();
 
-  const ref = await lancamentos().add({
-    ...documento,
-    numeroDocumento,
-    usuarioId: session.user.id,
-    usuarioNome: session.user.name ?? null,
-    createdAt: agora,
-    updatedAt: agora,
-  });
+  const lote = db.batch();
+  for (const parcela of parcelas) {
+    lote.set(lancamentos().doc(), {
+      ...comum,
+      ...parcela.campos,
+      numeroDocumento,
+      usuarioId: session.user.id,
+      usuarioNome: session.user.name ?? null,
+      createdAt: agora,
+      updatedAt: agora,
+    });
+  }
+  await lote.commit();
 
   revalidatePath("/financeiro");
-  return { id: ref.id, numeroDocumento };
+  return { numeroDocumento, totalParcelas: parcelas.length };
 }
 
+/**
+ * Atualiza o documento inteiro a partir de qualquer uma das suas parcelas:
+ * parcelas com id são atualizadas, sem id são criadas e as que sumiram da
+ * simulação são apagadas — exceto se já estavam recebidas/pagas.
+ */
 export async function atualizarLancamento(id: string, input: LancamentoInput) {
-  await exigirSessao();
+  const session = await exigirSessao();
 
-  const documento = await montarDocumento(input);
-  await lancamentos().doc(id).update({ ...documento, updatedAt: new Date() });
+  const docAtual = await lancamentos().doc(id).get();
+  if (!docAtual.exists) throw new Error("Lançamento não encontrado.");
+  const numeroDocumento = docAtual.data()!.numeroDocumento;
+
+  const { comum, parcelas } = await validarEMontar(input);
+  const existentes = await buscarParcelasDoDocumento(numeroDocumento);
+  const idsExistentes = new Set(existentes.map((d) => d.id));
+
+  for (const parcela of parcelas) {
+    if (parcela.id && !idsExistentes.has(parcela.id)) {
+      throw new Error("Parcela não pertence a este lançamento.");
+    }
+  }
+
+  const idsMantidos = new Set(parcelas.map((p) => p.id).filter(Boolean));
+  const removidas = existentes.filter((d) => !idsMantidos.has(d.id));
+  if (removidas.some((d) => d.data().status === "PAGO")) {
+    throw new Error("Não é possível remover uma parcela que já foi recebida/paga.");
+  }
+
+  const agora = new Date();
+  const lote = db.batch();
+  for (const parcela of parcelas) {
+    if (parcela.id) {
+      lote.update(lancamentos().doc(parcela.id), { ...comum, ...parcela.campos, updatedAt: agora });
+    } else {
+      lote.set(lancamentos().doc(), {
+        ...comum,
+        ...parcela.campos,
+        numeroDocumento,
+        usuarioId: session.user.id,
+        usuarioNome: session.user.name ?? null,
+        createdAt: agora,
+        updatedAt: agora,
+      });
+    }
+  }
+  for (const doc of removidas) lote.delete(doc.ref);
+  await lote.commit();
 
   revalidatePath("/financeiro");
-  revalidatePath(`/financeiro/${id}`);
 }
 
-/** Marca como recebido/pago na data informada, ou volta para pendente (data vazia). */
-export async function alterarStatusLancamento(id: string, dataPagamento: string | null) {
+/**
+ * Marca uma parcela como recebida/paga na data e banco informados, ou volta
+ * para pendente (dataPagamento null).
+ */
+export async function alterarStatusLancamento(id: string, dataPagamento: string | null, banco = "") {
   await exigirSessao();
 
   if (dataPagamento !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dataPagamento)) {
@@ -146,14 +231,24 @@ export async function alterarStatusLancamento(id: string, dataPagamento: string 
     .update({
       status: dataPagamento ? "PAGO" : "PENDENTE",
       dataPagamento: dataPagamento ?? "",
+      banco: dataPagamento ? banco.trim().toUpperCase() : "",
       updatedAt: new Date(),
     });
 
   revalidatePath("/financeiro");
 }
 
+/** Exclui o documento inteiro (todas as parcelas). */
 export async function excluirLancamento(id: string) {
   await exigirSessao();
-  await lancamentos().doc(id).delete();
+
+  const doc = await lancamentos().doc(id).get();
+  if (!doc.exists) return;
+
+  const parcelas = await buscarParcelasDoDocumento(doc.data()!.numeroDocumento);
+  const lote = db.batch();
+  for (const parcela of parcelas) lote.delete(parcela.ref);
+  await lote.commit();
+
   revalidatePath("/financeiro");
 }
