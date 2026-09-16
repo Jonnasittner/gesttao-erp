@@ -2,6 +2,7 @@
 
 import { ExternalLinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaginasPdf } from "@/components/pedidos/paginas-pdf";
 import {
   Dialog,
   DialogContent,
@@ -31,9 +32,7 @@ export function VisualizadorPdf({ url, titulo, descricao, onFechar, acoes }: Vis
           <DialogDescription>{descricao}</DialogDescription>
         </DialogHeader>
 
-        {url && (
-          <iframe src={url} title={titulo} className="min-h-0 w-full flex-1 rounded-md border bg-muted" />
-        )}
+        {url && <PaginasPdf url={url} />}
 
         <DialogFooter className="gap-2 sm:justify-between">
           {url && (
