@@ -20,6 +20,7 @@ function toPedido(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFiresto
     observacao: data.observacao ?? "",
     total: data.total ?? 0,
     status: data.status ?? "ORCAMENTO",
+    custoSugerido: typeof data.custoSugerido === "number" ? data.custoSugerido : null,
     createdAt: data.createdAt?.toDate?.().toISOString() ?? "",
     updatedAt: data.updatedAt?.toDate?.().toISOString() ?? "",
   };
@@ -117,6 +118,27 @@ export async function converterEmPedido(id: string) {
   revalidatePath(`/pedidos/${id}`);
   revalidatePath("/crm");
   revalidatePath(`/cadastros/${pedido.cadastroId}`);
+}
+
+/** Grava (ou apaga, com null) o custo sugerido da mercadoria do pedido/orçamento. */
+export async function definirCustoSugerido(id: string, valor: number | null) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado");
+
+  if (valor !== null && (!Number.isFinite(valor) || valor < 0)) {
+    throw new Error("Informe um custo sugerido válido.");
+  }
+
+  const ref = db.collection("pedidos").doc(id);
+  if (!(await ref.get()).exists) throw new Error("Pedido não encontrado");
+
+  await ref.update({
+    custoSugerido: valor === null ? null : Math.round(valor * 100) / 100,
+    updatedAt: new Date(),
+  });
+
+  revalidatePath("/pedidos");
+  revalidatePath(`/pedidos/${id}`);
 }
 
 export async function excluirPedido(id: string) {

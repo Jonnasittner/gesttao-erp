@@ -3,7 +3,7 @@
 
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
-import type { CategoriaCusto, Lancamento } from "@/lib/types";
+import type { CategoriaCusto, ItemPedidoInput, Lancamento } from "@/lib/types";
 
 /** Rótulo do pedido no seletor: "Pedido 0012 · R$ 1.200,00". */
 export function rotuloPedido(numero: number, status: string, total: number): string {
@@ -172,4 +172,66 @@ export function calcularMargemPedido(totalPedido: number, lancamentosDoPedido: L
 
 function arredondar(valor: number): number {
   return Math.round(valor * 100) / 100;
+}
+
+// ---------------------------------------------------------------------------
+// Custo sugerido (antes da fábrica confirmar)
+// ---------------------------------------------------------------------------
+
+/**
+ * Custo estimado pela tabela de produtos: custo por m² × área (cm → m) ×
+ * quantidade — a mesma conta de "Custo total" ao montar o orçamento. Itens sem
+ * medida ou produto sem custo por m² contam zero.
+ */
+export function calcularCustoProdutos(itens: ItemPedidoInput[], custoM2PorProduto: Map<string, number>): number {
+  const total = itens.reduce((soma, item) => {
+    const area = ((item.comprimento || 0) / 100) * ((item.largura || 0) / 100);
+    return soma + area * (custoM2PorProduto.get(item.produtoId) ?? 0) * item.quantidade;
+  }, 0);
+  return Math.round(total * 100) / 100;
+}
+
+export interface ComparacaoCustoSugerido {
+  sugerido: number;
+  /** Soma dos custos de mercadoria lançados (valor passado pela fábrica). null = nada lançado ainda. */
+  mercadoria: number | null;
+  /** mercadoria − sugerido (positivo = fábrica cobrou acima do sugerido). */
+  diferenca: number | null;
+  situacao: "AGUARDANDO" | "ABAIXO" | "IGUAL" | "ACIMA";
+  /** Venda − sugerido − custos que não são mercadoria (frete, instalação...). */
+  margemPrevista: number;
+  margemPrevistaPercentual: number | null;
+}
+
+export function compararCustoSugerido(
+  sugerido: number,
+  receita: number,
+  lancamentosDoPedido: Lancamento[]
+): ComparacaoCustoSugerido {
+  let mercadoria = 0;
+  let temMercadoria = false;
+  let outrosCustos = 0;
+  for (const l of lancamentosDoPedido) {
+    if (l.tipo !== "PAGAR") continue;
+    if ((l.categoria || "MERCADORIA") === "MERCADORIA") {
+      mercadoria += l.valor;
+      temMercadoria = true;
+    } else {
+      outrosCustos += l.valor;
+    }
+  }
+
+  const diferenca = temMercadoria ? arredondar(mercadoria - sugerido) : null;
+  const situacao =
+    diferenca === null ? "AGUARDANDO" : Math.abs(diferenca) < 0.01 ? "IGUAL" : diferenca > 0 ? "ACIMA" : "ABAIXO";
+  const margemPrevista = arredondar(receita - sugerido - outrosCustos);
+
+  return {
+    sugerido,
+    mercadoria: temMercadoria ? arredondar(mercadoria) : null,
+    diferenca,
+    situacao,
+    margemPrevista,
+    margemPrevistaPercentual: receita > 0 ? (margemPrevista / receita) * 100 : null,
+  };
 }

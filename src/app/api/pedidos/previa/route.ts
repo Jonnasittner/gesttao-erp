@@ -22,6 +22,7 @@ export async function POST(req: Request) {
   const pedido: Pedido = {
     ...dados,
     id: "previa",
+    custoSugerido: null,
     numero: typeof corpo.numero === "number" ? corpo.numero : 0,
     total: dados.itens.reduce((soma, item) => soma + item.quantidade * item.precoUnitario, 0),
     createdAt: typeof corpo.createdAt === "string" && corpo.createdAt ? corpo.createdAt : new Date().toISOString(),

@@ -139,6 +139,11 @@ export interface Pedido extends PedidoInput {
   numero: number;
   total: number;
   status: StatusPedido;
+  /**
+   * Custo estimado da mercadoria antes da fábrica confirmar o valor; base para
+   * conferir se o custo lançado depois está certo. null = não informado.
+   */
+  custoSugerido: number | null;
   createdAt: string;
   updatedAt: string;
 }

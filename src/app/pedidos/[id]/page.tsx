@@ -20,7 +20,7 @@ import { EditarPedidoDialog } from "@/components/pedidos/editar-pedido-dialog";
 import { BaixarPdfBotao } from "@/components/pedidos/baixar-pdf-botao";
 import { FinanceiroPedido } from "@/components/pedidos/financeiro-pedido";
 import { listarBancosUsados, listarLancamentosDoPedido } from "@/server/financeiro";
-import { BANCOS_SUGERIDOS } from "@/lib/financeiro";
+import { BANCOS_SUGERIDOS, calcularCustoProdutos } from "@/lib/financeiro";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 
@@ -168,6 +168,10 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         pedido={pedido}
         lancamentos={lancamentos}
         sugestoesBanco={[...new Set([...bancosUsados, ...BANCOS_SUGERIDOS])]}
+        custoCalculado={calcularCustoProdutos(
+          pedido.itens,
+          new Map(todosProdutos.map((p) => [p.id, p.custoM2]))
+        )}
       />
     </div>
   );

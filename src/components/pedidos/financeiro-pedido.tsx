@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { ArrowDownCircle, ArrowUpCircle, PlusIcon, TruckIcon } from "lucide-react";
+import { AlertTriangleIcon, ArrowDownCircle, ArrowUpCircle, CheckCircle2Icon, ClockIcon, PlusIcon, TruckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LancamentoAcoes } from "@/components/financeiro/lancamento-acoes";
 import { SituacaoBadge } from "@/components/financeiro/situacao-badge";
-import { ID_LISTA_BANCOS, calcularMargemPedido, estaVencido, rotuloDocumento } from "@/lib/financeiro";
+import { CustoSugeridoBotao } from "@/components/pedidos/custo-sugerido-botao";
+import {
+  ID_LISTA_BANCOS,
+  calcularMargemPedido,
+  compararCustoSugerido,
+  estaVencido,
+  rotuloDocumento,
+} from "@/lib/financeiro";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO, hojeISO } from "@/lib/datetime";
 import { ROTULOS_CATEGORIA_CUSTO, ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
@@ -13,13 +20,15 @@ interface FinanceiroPedidoProps {
   pedido: Pedido;
   lancamentos: Lancamento[];
   sugestoesBanco: string[];
+  /** Custo pela tabela dos produtos (custo por m²), sugerido ao informar o custo sugerido. */
+  custoCalculado: number;
 }
 
 /**
  * Visão financeira centralizada do pedido: o que o cliente paga, o que foi
  * gasto (fornecedor, frete...) e a margem que sobra.
  */
-export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco }: FinanceiroPedidoProps) {
+export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco, custoCalculado }: FinanceiroPedidoProps) {
   const hoje = hojeISO();
   const voltarPara = `/pedidos/${pedido.id}`;
   const recebimentos = lancamentos.filter((l) => l.tipo === "RECEBER");
@@ -30,12 +39,24 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco }: Financ
   const linkNovo = (tipo: "RECEBER" | "PAGAR", categoria?: string) =>
     `/financeiro/novo?pedido=${pedido.id}&tipo=${tipo}${categoria ? `&categoria=${categoria}` : ""}`;
 
+  const botaoSugerido = (
+    <CustoSugeridoBotao pedidoId={pedido.id} custoSugerido={pedido.custoSugerido} custoCalculado={custoCalculado} />
+  );
+
   if (!isPedido && lancamentos.length === 0) {
     return (
-      <section className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-        <h2 className="mb-1 font-medium text-foreground">Financeiro do pedido</h2>
-        Ao transformar este orçamento em pedido, você informa a condição de pagamento. Depois, aqui mesmo, lança
-        os custos (fornecedor, frete...) e acompanha a margem.
+      <section className="flex flex-col gap-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium text-foreground">Financeiro do pedido</h2>
+          {botaoSugerido}
+        </div>
+        <p>
+          Ao transformar este orçamento em pedido, você informa a condição de pagamento. Depois, aqui mesmo, lança
+          os custos (fornecedor, frete...) e acompanha a margem.
+        </p>
+        {pedido.custoSugerido !== null && (
+          <PainelCustoSugerido comparacao={compararCustoSugerido(pedido.custoSugerido, pedido.total, [])} />
+        )}
       </section>
     );
   }
@@ -129,6 +150,7 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco }: Financ
         titulo="Custos do pedido"
         acoes={
           <div className="flex flex-wrap gap-2">
+            {botaoSugerido}
             <Button
               variant="outline"
               size="sm"
@@ -154,6 +176,13 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco }: Financ
         itens={custos}
         hoje={hoje}
         voltarPara={voltarPara}
+        antesDaLista={
+          pedido.custoSugerido !== null ? (
+            <PainelCustoSugerido
+              comparacao={compararCustoSugerido(pedido.custoSugerido, margem.receita, lancamentos)}
+            />
+          ) : undefined
+        }
       />
     </section>
   );
@@ -189,6 +218,7 @@ function Bloco({
   itens,
   hoje,
   voltarPara,
+  antesDaLista,
 }: {
   icone: React.ReactNode;
   titulo: string;
@@ -197,6 +227,7 @@ function Bloco({
   itens: Lancamento[];
   hoje: string;
   voltarPara: string;
+  antesDaLista?: React.ReactNode;
 }) {
   const total = itens.reduce((soma, l) => soma + l.valor, 0);
 
@@ -211,6 +242,8 @@ function Bloco({
         </h3>
         {acoes}
       </div>
+
+      {antesDaLista}
 
       {itens.length === 0 ? (
         <p className="rounded-md border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">{vazio}</p>
@@ -280,5 +313,59 @@ function LinhaLancamento({
         <LancamentoAcoes lancamento={l} documento={documento} voltarPara={voltarPara} />
       </div>
     </li>
+  );
+}
+
+/** Custo sugerido × valor da fábrica (mercadoria lançada) e a margem prevista. */
+function PainelCustoSugerido({ comparacao: c }: { comparacao: ReturnType<typeof compararCustoSugerido> }) {
+  const estilos = {
+    AGUARDANDO: {
+      caixa: "border-muted bg-muted/40",
+      icone: <ClockIcon className="size-4 text-muted-foreground" />,
+      texto: "Aguardando o valor da fábrica (nenhum custo de mercadoria lançado).",
+    },
+    IGUAL: {
+      caixa: "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30",
+      icone: <CheckCircle2Icon className="size-4 text-emerald-600" />,
+      texto: "Valor da fábrica igual ao sugerido.",
+    },
+    ABAIXO: {
+      caixa: "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30",
+      icone: <CheckCircle2Icon className="size-4 text-emerald-600" />,
+      texto: `Fábrica ${formatarMoeda(Math.abs(c.diferenca ?? 0))} abaixo do sugerido.`,
+    },
+    ACIMA: {
+      caixa: "border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30",
+      icone: <AlertTriangleIcon className="size-4 text-amber-600" />,
+      texto: `Atenção: fábrica ${formatarMoeda(c.diferenca ?? 0)} acima do sugerido${
+        c.sugerido > 0 ? ` (+${(((c.diferenca ?? 0) / c.sugerido) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)` : ""
+      }. Confira o valor.`,
+    },
+  }[c.situacao];
+
+  return (
+    <div className={`flex flex-col gap-2 rounded-md border p-3 text-sm ${estilos.caixa}`}>
+      <div className="flex flex-wrap gap-x-6 gap-y-1">
+        <span>
+          <span className="text-muted-foreground">Custo sugerido: </span>
+          <span className="font-semibold tabular-nums">{formatarMoeda(c.sugerido)}</span>
+        </span>
+        <span>
+          <span className="text-muted-foreground">Mercadoria lançada (fábrica): </span>
+          <span className="font-semibold tabular-nums">{c.mercadoria === null ? "—" : formatarMoeda(c.mercadoria)}</span>
+        </span>
+        <span>
+          <span className="text-muted-foreground">Margem prevista com o sugerido: </span>
+          <span className={`font-semibold tabular-nums ${c.margemPrevista < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
+            {formatarMoeda(c.margemPrevista)}
+            {c.margemPrevistaPercentual !== null &&
+              ` (${c.margemPrevistaPercentual.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)`}
+          </span>
+        </span>
+      </div>
+      <p className="flex items-center gap-1.5 font-medium">
+        {estilos.icone} {estilos.texto}
+      </p>
+    </div>
   );
 }
