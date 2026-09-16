@@ -54,3 +54,18 @@ export function formatarReagendamento(valor: string): string {
   if (!ano || !mes || !dia) return "";
   return `${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano} (dia inteiro)`;
 }
+
+/**
+ * Hoje no formato "AAAA-MM-DD" no horário de Brasília. Serve igual no
+ * navegador e no servidor (o Netlify roda em UTC, o que à noite já seria o
+ * dia seguinte e marcaria lançamentos como vencidos antes da hora).
+ */
+export function hojeISO(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+/** "2026-09-16" → "16/09/2026". */
+export function formatarDataISO(valor: string): string {
+  const [ano, mes, dia] = valor.split("-");
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : "";
+}

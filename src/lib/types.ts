@@ -186,6 +186,86 @@ export interface Usuario extends UsuarioInput {
   createdAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// Financeiro
+// ---------------------------------------------------------------------------
+
+/** RECEBER = dinheiro que entra (cliente); PAGAR = dinheiro que sai (fornecedor). */
+export const TIPO_LANCAMENTO = ["RECEBER", "PAGAR"] as const;
+export type TipoLancamento = (typeof TIPO_LANCAMENTO)[number];
+
+export const FORMA_PAGAMENTO = [
+  "PIX",
+  "DINHEIRO",
+  "BOLETO",
+  "CARTAO_CREDITO",
+  "CARTAO_DEBITO",
+  "TRANSFERENCIA",
+  "CHEQUE",
+] as const;
+export type FormaPagamento = (typeof FORMA_PAGAMENTO)[number];
+
+export const STATUS_LANCAMENTO = ["PENDENTE", "PAGO"] as const;
+export type StatusLancamento = (typeof STATUS_LANCAMENTO)[number];
+
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * O que o formulário envia. Nomes de cliente/fornecedor e número do pedido
+ * não vêm daqui: o servidor busca pelos ids, para não gravar dado adulterado.
+ */
+export const lancamentoSchema = z
+  .object({
+    tipo: z.enum(TIPO_LANCAMENTO),
+    clienteId: z.string().optional().or(z.literal("")),
+    pedidoId: z.string().optional().or(z.literal("")),
+    fornecedorId: z.string().optional().or(z.literal("")),
+    numeroPedidoFornecedor: textoMaiusculoOpcional,
+    formaPagamento: z.enum(FORMA_PAGAMENTO, { error: "Selecione a forma de pagamento" }),
+    valor: z.coerce.number().positive("Informe um valor maior que zero"),
+    vencimento: z.string().regex(DATA_ISO, "Informe a data de vencimento"),
+    status: z.enum(STATUS_LANCAMENTO).default("PENDENTE"),
+    dataPagamento: z.string().regex(DATA_ISO).optional().or(z.literal("")),
+    descricao: textoMaiusculoOpcional,
+  })
+  .superRefine((dados, ctx) => {
+    if (dados.tipo === "RECEBER" && !dados.clienteId) {
+      ctx.addIssue({ code: "custom", path: ["clienteId"], message: "Selecione o cliente" });
+    }
+    if (dados.tipo === "PAGAR" && !dados.fornecedorId) {
+      ctx.addIssue({ code: "custom", path: ["fornecedorId"], message: "Selecione o fornecedor" });
+    }
+    if (dados.status === "PAGO" && !dados.dataPagamento) {
+      ctx.addIssue({ code: "custom", path: ["dataPagamento"], message: "Informe a data do pagamento" });
+    }
+  });
+export type LancamentoInput = z.infer<typeof lancamentoSchema>;
+
+export interface Lancamento {
+  id: string;
+  /** Nº do documento gerado pelo sistema (1, 2, 3...). */
+  numeroDocumento: number;
+  tipo: TipoLancamento;
+  clienteId: string;
+  clienteNome: string;
+  pedidoId: string;
+  /** 0 quando não há pedido vinculado. */
+  pedidoNumero: number;
+  fornecedorId: string;
+  fornecedorNome: string;
+  numeroPedidoFornecedor: string;
+  formaPagamento: FormaPagamento;
+  valor: number;
+  /** "AAAA-MM-DD" (sem horário, para não trocar o dia por fuso). */
+  vencimento: string;
+  status: StatusLancamento;
+  dataPagamento: string;
+  descricao: string;
+  usuarioNome: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Anexo {
   id: string;
   interacaoId: string;

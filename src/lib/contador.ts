@@ -1,6 +1,10 @@
 import { db } from "@/lib/firebase-admin";
 
-export type ChaveContador = "cadastro_codigo" | "pedido_numero" | "produto_codigo_interno";
+export type ChaveContador =
+  | "cadastro_codigo"
+  | "pedido_numero"
+  | "produto_codigo_interno"
+  | "financeiro_documento";
 
 /**
  * Incrementa atomicamente um contador (contadores/{chave}) e retorna o novo

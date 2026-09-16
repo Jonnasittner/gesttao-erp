@@ -3,7 +3,13 @@
 // um módulo client pode virar `undefined` quando importado por um Server
 // Component (o Next.js só garante o boundary para o próprio componente).
 
-import type { ETAPA_ATENDIMENTO, TIPO_CADASTRO, TIPO_INTERACAO } from "@/lib/types";
+import type {
+  ETAPA_ATENDIMENTO,
+  FORMA_PAGAMENTO,
+  TIPO_CADASTRO,
+  TIPO_INTERACAO,
+  TIPO_LANCAMENTO,
+} from "@/lib/types";
 
 export const ROTULOS_TIPO_CADASTRO: Record<(typeof TIPO_CADASTRO)[number], string> = {
   CLIENTE: "Cliente",
@@ -42,4 +48,19 @@ export const ROTULOS_ETAPA_ATENDIMENTO: Record<(typeof ETAPA_ATENDIMENTO)[number
   GANHO: "Pedido Feito",
   PERDIDO: "Pedido Perdido",
   FINALIZADO: "Finalizado",
+};
+
+export const ROTULOS_TIPO_LANCAMENTO: Record<(typeof TIPO_LANCAMENTO)[number], string> = {
+  RECEBER: "A receber",
+  PAGAR: "A pagar",
+};
+
+export const ROTULOS_FORMA_PAGAMENTO: Record<(typeof FORMA_PAGAMENTO)[number], string> = {
+  PIX: "Pix",
+  DINHEIRO: "Dinheiro",
+  BOLETO: "Boleto",
+  CARTAO_CREDITO: "Cartão de crédito",
+  CARTAO_DEBITO: "Cartão de débito",
+  TRANSFERENCIA: "Transferência",
+  CHEQUE: "Cheque",
 };

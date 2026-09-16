@@ -1,6 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   Calendar,
@@ -40,7 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/crm", label: "CRM", icon: Users },
   { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
   { href: "/produtos", label: "Cadastro Produtos", icon: Package },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet, emBreve: true },
+  { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 ];
@@ -90,13 +91,23 @@ export function SidebarNav() {
   );
 }
 
+// Com 8 itens a barra não cabe em telas estreitas: rola para o lado.
 export function MobileNav() {
   const pathname = usePathname();
   const mobileItems = NAV_ITEMS.filter((item) => !item.emBreve);
+  const navRef = useRef<HTMLElement>(null);
+
+  // Traz o item da tela atual para a parte visível da barra.
+  useEffect(() => {
+    navRef.current
+      ?.querySelector("[aria-current=page]")
+      ?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
 
   return (
     <nav
-      className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-around rounded-2xl border border-white/20 dark:border-white/5 bg-background/80 backdrop-blur-lg shadow-xl py-2 px-3 md:hidden animate-fade-in"
+      ref={navRef}
+      className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-between gap-1 overflow-x-auto [scrollbar-width:none] rounded-2xl border border-white/20 dark:border-white/5 bg-background/80 backdrop-blur-lg shadow-xl py-2 px-3 md:hidden animate-fade-in"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
     >
       {mobileItems.map((item) => {
@@ -106,7 +117,8 @@ export function MobileNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`relative flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
+            aria-current={isActive ? "page" : undefined}
+            className={`relative flex shrink-0 flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
               isActive 
                 ? "text-primary scale-105" 
                 : "text-muted-foreground hover:text-foreground"
