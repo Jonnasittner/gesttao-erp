@@ -134,6 +134,15 @@ export const pedidoSchema = z.object({
 });
 export type PedidoInput = z.infer<typeof pedidoSchema>;
 
+/** Máximo de fotos anexadas a um orçamento/pedido (aparecem no PDF). */
+export const MAX_FOTOS_PEDIDO = 10;
+
+export interface FotoPedido {
+  id: string;
+  /** Rota autenticada que devolve a imagem. */
+  url: string;
+}
+
 export interface Pedido extends PedidoInput {
   id: string;
   numero: number;
@@ -144,6 +153,8 @@ export interface Pedido extends PedidoInput {
    * conferir se o custo lançado depois está certo. null = não informado.
    */
   custoSugerido: number | null;
+  /** Fotos do orçamento, na ordem em que foram adicionadas. */
+  fotos: FotoPedido[];
   createdAt: string;
   updatedAt: string;
 }

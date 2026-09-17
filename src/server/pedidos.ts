@@ -4,10 +4,23 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/firebase-admin";
 import { proximoNumero } from "@/lib/contador";
-import { type Pedido, type PedidoInput, pedidoSchema } from "@/lib/types";
+import { MAX_FOTOS_PEDIDO, type Pedido, type PedidoInput, pedidoSchema } from "@/lib/types";
+import { randomUUID } from "node:crypto";
+import { excluirArquivoAnexo, salvarAnexo } from "@/lib/anexos-storage";
 
 import { formatarCodigo } from "@/lib/codigo";
 import { resolverAtendimentoId } from "@/server/crm";
+
+/** Como a foto fica gravada no documento do pedido. */
+interface FotoSalva {
+  id: string;
+  chave: string;
+  tipo: string;
+  criadaEm: Date;
+}
+
+const TAMANHO_MAXIMO_FOTO_BYTES = 8 * 1024 * 1024; // 8MB (o navegador já reduz antes de enviar)
+const TIPOS_FOTO_ACEITOS = ["image/jpeg", "image/png"]; // os que o gerador de PDF lê
 
 function toPedido(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot): Pedido {
   const data = doc.data()!;
@@ -21,6 +34,11 @@ function toPedido(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFiresto
     total: data.total ?? 0,
     status: data.status ?? "ORCAMENTO",
     custoSugerido: typeof data.custoSugerido === "number" ? data.custoSugerido : null,
+    // A chave do arquivo no storage não sai do servidor; a tela usa a rota da foto.
+    fotos: ((data.fotos ?? []) as FotoSalva[]).map((f) => ({
+      id: f.id,
+      url: `/api/pedidos/${doc.id}/fotos/${f.id}`,
+    })),
     createdAt: data.createdAt?.toDate?.().toISOString() ?? "",
     updatedAt: data.updatedAt?.toDate?.().toISOString() ?? "",
   };
@@ -141,11 +159,63 @@ export async function definirCustoSugerido(id: string, valor: number | null) {
   revalidatePath(`/pedidos/${id}`);
 }
 
+/** Adiciona uma foto ao orçamento/pedido (FormData com o campo "foto"). */
+export async function enviarFotoPedido(pedidoId: string, formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado");
+
+  const arquivo = formData.get("foto");
+  if (!(arquivo instanceof File) || arquivo.size === 0) throw new Error("Nenhuma foto recebida.");
+  if (!TIPOS_FOTO_ACEITOS.includes(arquivo.type)) throw new Error("Envie a foto em JPG ou PNG.");
+  if (arquivo.size > TAMANHO_MAXIMO_FOTO_BYTES) throw new Error("A foto passa do limite de 8MB.");
+
+  const ref = db.collection("pedidos").doc(pedidoId);
+  const doc = await ref.get();
+  if (!doc.exists) throw new Error("Pedido não encontrado");
+
+  const fotos = (doc.data()!.fotos ?? []) as FotoSalva[];
+  if (fotos.length >= MAX_FOTOS_PEDIDO) {
+    throw new Error(`O limite é de ${MAX_FOTOS_PEDIDO} fotos por orçamento.`);
+  }
+
+  const id = randomUUID();
+  const chave = `pedidos/${pedidoId}/fotos/${id}`;
+  await salvarAnexo(chave, Buffer.from(await arquivo.arrayBuffer()));
+
+  const nova: FotoSalva = { id, chave, tipo: arquivo.type, criadaEm: new Date() };
+  await ref.update({ fotos: [...fotos, nova], updatedAt: new Date() });
+
+  revalidatePath(`/pedidos/${pedidoId}`);
+}
+
+export async function excluirFotoPedido(pedidoId: string, fotoId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Não autenticado");
+
+  const ref = db.collection("pedidos").doc(pedidoId);
+  const doc = await ref.get();
+  if (!doc.exists) throw new Error("Pedido não encontrado");
+
+  const fotos = (doc.data()!.fotos ?? []) as FotoSalva[];
+  const foto = fotos.find((f) => f.id === fotoId);
+  if (!foto) return;
+
+  await ref.update({ fotos: fotos.filter((f) => f.id !== fotoId), updatedAt: new Date() });
+  await excluirArquivoAnexo(foto.chave);
+
+  revalidatePath(`/pedidos/${pedidoId}`);
+}
+
 export async function excluirPedido(id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Não autenticado");
 
-  await db.collection("pedidos").doc(id).delete();
+  const ref = db.collection("pedidos").doc(id);
+  const fotos = ((await ref.get()).data()?.fotos ?? []) as FotoSalva[];
+
+  await ref.delete();
+  // Remove também os arquivos das fotos; falha em um não impede os outros.
+  await Promise.allSettled(fotos.map((f) => excluirArquivoAnexo(f.chave)));
 
   revalidatePath("/pedidos");
 }

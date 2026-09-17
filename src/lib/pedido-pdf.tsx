@@ -79,7 +79,35 @@ const styles = StyleSheet.create({
     borderTop: "1 solid #ddd",
   },
   observacaoTexto: { fontSize: 8, color: "#555", lineHeight: 1.4 },
+  fotosBloco: { marginTop: 16 },
+  fotosLinha: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  fotoCaixa: {
+    width: 171,
+    height: 128,
+    border: "1 solid #ddd",
+    borderRadius: 3,
+    padding: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  foto: { width: "100%", height: "100%", objectFit: "contain" },
 });
+
+const FOTOS_POR_LINHA = 3;
+
+/**
+ * As observações ficam presas no rodapé de todas as páginas (position absolute);
+ * a margem de baixo da página cresce com o texto para o conteúdo (tabela,
+ * fotos) não passar por cima delas.
+ */
+function margemInferior(observacao: string): number {
+  if (!observacao) return 40;
+  const linhas = observacao
+    .split("\n")
+    .reduce((total, linha) => total + Math.max(1, Math.ceil(linha.length / 115)), 0);
+  const alturaObservacao = 18 + linhas * 11.2; // título + linhas (fonte 8 × altura 1,4)
+  return Math.max(64, Math.round(alturaObservacao + 20 + 14));
+}
 
 import { formatarCpfCnpj } from "@/lib/documento";
 
@@ -95,6 +123,7 @@ function OrcamentoDocument({
   emailDataUri,
   imagensProdutos,
   previa,
+  fotos = [],
 }: {
   pedido: Pedido;
   cliente: Cadastro | null;
@@ -108,14 +137,22 @@ function OrcamentoDocument({
   imagensProdutos: Record<string, string | null>;
   /** Prévia antes de salvar: orçamento novo ainda não tem número. */
   previa?: boolean;
+  /** Fotos do orçamento (data URIs), exibidas acima das observações. */
+  fotos?: string[];
 }) {
+  const linhasDeFotos: string[][] = [];
+  for (let i = 0; i < fotos.length; i += FOTOS_POR_LINHA) {
+    linhasDeFotos.push(fotos.slice(i, i + FOTOS_POR_LINHA));
+  }
+  const observacao = pedido.observacao ? textoSeguroPdf(pedido.observacao) : "";
+
   const enderecoCliente = cliente
     ? [cliente.endereco, cliente.numero, cliente.bairro, cliente.cidade, cliente.estado].filter(Boolean).join(", ")
     : "";
 
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={[styles.page, { paddingBottom: margemInferior(observacao) }]}>
         {logoDataUri ? (
           <View style={styles.marcaDaguaContainer} fixed>
             {/* eslint-disable-next-line jsx-a11y/alt-text */}
@@ -237,10 +274,29 @@ function OrcamentoDocument({
           <Text style={styles.totalValor}>{formatarMoeda(pedido.total)}</Text>
         </View>
 
-        {pedido.observacao ? (
+        {linhasDeFotos.length > 0 ? (
+          <View style={styles.fotosBloco}>
+            <Text style={styles.secaoTitulo} minPresenceAhead={140}>
+              FOTOS
+            </Text>
+            {linhasDeFotos.map((linha, indice) => (
+              // Cada linha de fotos fica inteira na mesma página.
+              <View key={indice} style={styles.fotosLinha} wrap={false}>
+                {linha.map((foto, i) => (
+                  <View key={i} style={styles.fotoCaixa}>
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                    <Image src={foto} style={styles.foto} />
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {observacao ? (
           <View style={styles.observacaoBloco} fixed>
             <Text style={styles.secaoTitulo}>OBSERVAÇÕES</Text>
-            <Text style={styles.observacaoTexto}>{textoSeguroPdf(pedido.observacao)}</Text>
+            <Text style={styles.observacaoTexto}>{observacao}</Text>
           </View>
         ) : null}
       </Page>
@@ -260,6 +316,7 @@ export async function renderOrcamentoPdf(props: {
   emailDataUri?: string | null;
   imagensProdutos: Record<string, string | null>;
   previa?: boolean;
+  fotos?: string[];
 }): Promise<Buffer> {
   return renderToBuffer(<OrcamentoDocument {...props} />);
 }

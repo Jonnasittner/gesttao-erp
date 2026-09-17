@@ -380,6 +380,7 @@ export function EditarPedidoDialog({
             montarDados={montarDados}
             numero={pedido.numero}
             createdAt={pedido.createdAt}
+            pedidoId={pedido.id}
             onSalvar={handleSubmit}
             salvando={isPending}
             textoSalvar="Salvar alterações"

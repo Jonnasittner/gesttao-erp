@@ -19,6 +19,7 @@ import { ConverterPedidoBotao } from "@/components/pedidos/converter-pedido-bota
 import { EditarPedidoDialog } from "@/components/pedidos/editar-pedido-dialog";
 import { BaixarPdfBotao } from "@/components/pedidos/baixar-pdf-botao";
 import { FinanceiroPedido } from "@/components/pedidos/financeiro-pedido";
+import { FotosPedido } from "@/components/pedidos/fotos-pedido";
 import { listarBancosUsados, listarLancamentosDoPedido } from "@/server/financeiro";
 import { BANCOS_SUGERIDOS, calcularCustoProdutos } from "@/lib/financeiro";
 import { formatarCodigo } from "@/lib/codigo";
@@ -156,6 +157,8 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         <span>Total</span>
         <span>{formatarMoeda(pedido.total)}</span>
       </div>
+
+      <FotosPedido pedidoId={pedido.id} fotos={pedido.fotos} />
 
       {pedido.observacao && (
         <div className="rounded-lg border p-4">
