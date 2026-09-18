@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, PencilIcon } from "lucide-react";
+import { PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +22,7 @@ import { FotosPedido } from "@/components/pedidos/fotos-pedido";
 import { listarBancosUsados, listarLancamentosDoPedido } from "@/server/financeiro";
 import { BANCOS_SUGERIDOS, calcularCustoProdutos } from "@/lib/financeiro";
 import { formatarCodigo } from "@/lib/codigo";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatarMoeda } from "@/lib/moeda";
 
 import { formatarCpfCnpj } from "@/lib/documento";
@@ -58,32 +58,25 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link
-            href="/pedidos"
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        voltar={{ href: "/pedidos", label: "Pedidos" }}
+        titulo={`${isPedido ? "Pedido" : "Orçamento"} ${codigoFormatado}`}
+        descricao={`Criado em ${new Date(pedido.createdAt).toLocaleDateString("pt-BR")}`}
+        selo={
+          <Badge
+            variant="outline"
+            className={
+              isPedido
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300"
+            }
           >
-            <ArrowLeftIcon className="size-3.5" /> Pedidos
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">
-              {isPedido ? "Pedido" : "Orçamento"} {codigoFormatado}
-            </h1>
-            <Badge
-              variant="outline"
-              className={
-                isPedido
-                  ? "border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/40 dark:text-green-300"
-                  : "border-blue-200 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
-              }
-            >
-              {isPedido ? "Pedido" : "Orçamento"}
-            </Badge>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+            {isPedido ? "Pedido" : "Orçamento"}
+          </Badge>
+        }
+        acoes={
+          <>
           <EditarPedidoDialog
             pedido={pedido}
             clientes={opcoesClientes}
@@ -102,11 +95,12 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
             nomeArquivo={`${isPedido ? "pedido" : "orcamento"}-${codigoFormatado}.pdf`}
             titulo={`${isPedido ? "Pedido" : "Orçamento"} ${codigoFormatado}`}
           />
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="rounded-lg border p-4">
-        <h2 className="mb-2 text-sm font-medium text-muted-foreground">Cliente</h2>
+      <div className="superficie p-5">
+        <h2 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Cliente</h2>
         <p className="font-medium">{pedido.cadastroNome}</p>
         {cliente?.documento && (
           <p className="text-sm text-muted-foreground">CNPJ/CPF: {formatarCpfCnpj(cliente.documento)}</p>
@@ -115,7 +109,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         {enderecoCliente && <p className="text-sm text-muted-foreground">{enderecoCliente}</p>}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="superficie overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -153,16 +147,16 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         </Table>
       </div>
 
-      <div className="flex items-center justify-end gap-2 border-t pt-3 text-lg font-semibold">
-        <span>Total</span>
-        <span>{formatarMoeda(pedido.total)}</span>
+      <div className="superficie flex items-center justify-end gap-3 px-5 py-3">
+        <span className="text-sm text-muted-foreground">Total</span>
+        <span className="text-xl font-semibold tabular-nums">{formatarMoeda(pedido.total)}</span>
       </div>
 
       <FotosPedido pedidoId={pedido.id} fotos={pedido.fotos} />
 
       {pedido.observacao && (
-        <div className="rounded-lg border p-4">
-          <h2 className="mb-2 text-sm font-medium text-muted-foreground">Observações</h2>
+        <div className="superficie p-5">
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Observações</h2>
           <p className="text-sm whitespace-pre-line">{pedido.observacao}</p>
         </div>
       )}

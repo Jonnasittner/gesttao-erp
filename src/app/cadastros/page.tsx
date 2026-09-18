@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PageHeader } from "@/components/ui/page-header";
 import { listarCadastros } from "@/server/cadastros";
 import { formatarCodigo } from "@/lib/codigo";
 import { TIPO_CADASTRO, type TipoCadastro } from "@/lib/types";
@@ -35,11 +36,12 @@ export default async function CadastrosPage({
   const cadastros = await listarCadastros(tipoFiltro);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Cadastros</h1>
-        <Button nativeButton={false} render={<Link href="/cadastros/novo">Novo cadastro</Link>} />
-      </div>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        titulo="Cadastros"
+        descricao="Clientes, fornecedores e contatos internos."
+        acoes={<Button nativeButton={false} render={<Link href="/cadastros/novo">Novo cadastro</Link>} />}
+      />
 
       <div className="flex flex-wrap gap-1">
         {FILTROS.map((filtro) => {
@@ -64,7 +66,7 @@ export default async function CadastrosPage({
         })}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="superficie overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

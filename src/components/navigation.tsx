@@ -9,11 +9,11 @@ import {
   LayoutDashboard,
   Loader2,
   Package,
-  Settings, 
-  ShoppingCart, 
-  Users, 
+  Settings,
+  ShoppingCart,
+  Users,
   Wallet,
-  type LucideIcon 
+  type LucideIcon,
 } from "lucide-react";
 
 // Ícone girando no item clicado enquanto a próxima tela carrega. Precisa estar
@@ -35,58 +35,86 @@ interface NavItem {
   emBreve?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { href: "/agendamentos", label: "Agendamentos", icon: Calendar },
-  { href: "/cadastros", label: "Cadastros", icon: Contact },
-  { href: "/crm", label: "CRM", icon: Users },
-  { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
-  { href: "/produtos", label: "Cadastro Produtos", icon: Package },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet },
-  { href: "/configuracoes", label: "Configurações", icon: Settings },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+interface GrupoNav {
+  titulo: string;
+  itens: NavItem[];
+}
+
+const GRUPOS: GrupoNav[] = [
+  {
+    titulo: "Dia a dia",
+    itens: [
+      { href: "/agendamentos", label: "Agendamentos", icon: Calendar },
+      { href: "/crm", label: "CRM", icon: Users },
+      { href: "/pedidos", label: "Pedidos", icon: ShoppingCart },
+    ],
+  },
+  {
+    titulo: "Cadastros",
+    itens: [
+      { href: "/cadastros", label: "Clientes e fornecedores", icon: Contact },
+      { href: "/produtos", label: "Produtos", icon: Package },
+    ],
+  },
+  {
+    titulo: "Gestão",
+    itens: [
+      { href: "/financeiro", label: "Financeiro", icon: Wallet },
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/configuracoes", label: "Configurações", icon: Settings },
+    ],
+  },
 ];
+
+const ITENS = GRUPOS.flatMap((g) => g.itens);
 
 export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
-      {NAV_ITEMS.map((item) => {
-        const isActive = pathname.startsWith(item.href);
+    <nav className="flex flex-col gap-5 px-3 py-1">
+      {GRUPOS.map((grupo) => (
+        <div key={grupo.titulo} className="flex flex-col gap-1">
+          <p className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase">
+            {grupo.titulo}
+          </p>
+          {grupo.itens.map((item) => {
+            const ativo = pathname.startsWith(item.href);
 
-        return (
-          <Link
-            key={item.href}
-            href={item.emBreve ? "#" : item.href}
-            aria-disabled={item.emBreve}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 relative group ${
-              item.emBreve
-                ? "cursor-not-allowed text-muted-foreground/40"
-                : isActive
-                ? "bg-primary/10 text-primary shadow-sm"
-                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground hover:translate-x-1"
-            }`}
-          >
-            {/* Visual active indicator bar on the left */}
-            {isActive && !item.emBreve && (
-              <span className="absolute left-0 top-2 bottom-2 w-1 bg-primary rounded-r-full" />
-            )}
-            
-            <item.icon className={`h-4.5 w-4.5 transition-transform duration-200 ${
-              isActive && !item.emBreve ? "text-primary scale-110" : "text-muted-foreground group-hover:text-foreground"
-            }`} />
-            
-            <span>{item.label}</span>
-            {!item.emBreve && <IndicadorCarregando className="ml-auto" />}
-            
-            {item.emBreve && (
-              <span className="ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground/60 border dark:border-white/5 scale-90">
-                breve
-              </span>
-            )}
-          </Link>
-        );
-      })}
+            return (
+              <Link
+                key={item.href}
+                href={item.emBreve ? "#" : item.href}
+                aria-disabled={item.emBreve}
+                aria-current={ativo ? "page" : undefined}
+                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
+                  item.emBreve
+                    ? "cursor-not-allowed text-muted-foreground/40"
+                    : ativo
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {ativo && !item.emBreve && (
+                  <span className="absolute top-2 bottom-2 -left-3 w-1 rounded-r-full bg-primary" aria-hidden />
+                )}
+                <item.icon
+                  className={`size-4.5 transition-colors ${
+                    ativo && !item.emBreve ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  }`}
+                />
+                <span className="truncate">{item.label}</span>
+                {!item.emBreve && <IndicadorCarregando className="ml-auto" />}
+                {item.emBreve && (
+                  <span className="ml-auto rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-muted-foreground/60 uppercase">
+                    breve
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }
@@ -94,7 +122,7 @@ export function SidebarNav() {
 // Com 8 itens a barra não cabe em telas estreitas: rola para o lado.
 export function MobileNav() {
   const pathname = usePathname();
-  const mobileItems = NAV_ITEMS.filter((item) => !item.emBreve);
+  const mobileItems = ITENS.filter((item) => !item.emBreve);
   const navRef = useRef<HTMLElement>(null);
 
   // Traz o item da tela atual para a parte visível da barra.
@@ -107,29 +135,25 @@ export function MobileNav() {
   return (
     <nav
       ref={navRef}
-      className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-between gap-1 overflow-x-auto [scrollbar-width:none] rounded-2xl border border-white/20 dark:border-white/5 bg-background/80 backdrop-blur-lg shadow-xl py-2 px-3 md:hidden animate-fade-in"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
+      className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-between gap-1 overflow-x-auto rounded-2xl border bg-background/85 px-2 py-1.5 backdrop-blur-lg [scrollbar-width:none] sombra-alta md:hidden"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) * 0.5 + 0.375rem)" }}
     >
       {mobileItems.map((item) => {
-        const isActive = pathname.startsWith(item.href);
+        const ativo = pathname.startsWith(item.href);
+        const curto = item.label.split(" ")[0];
 
         return (
           <Link
             key={item.href}
             href={item.href}
-            aria-current={isActive ? "page" : undefined}
-            className={`relative flex shrink-0 flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all duration-200 ${
-              isActive 
-                ? "text-primary scale-105" 
-                : "text-muted-foreground hover:text-foreground"
+            aria-current={ativo ? "page" : undefined}
+            className={`relative flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 transition-colors ${
+              ativo ? "bg-primary/10 text-primary" : "text-muted-foreground"
             }`}
           >
-            <item.icon className={`h-5 w-5 transition-transform ${isActive ? "stroke-[2.5px]" : "stroke-[2px]"}`} />
-            <span className="text-[10px] font-semibold tracking-wide">{item.label}</span>
+            <item.icon className={`size-5 ${ativo ? "stroke-[2.4px]" : "stroke-[1.9px]"}`} />
+            <span className="text-[10px] font-semibold tracking-wide">{curto}</span>
             <IndicadorCarregando className="absolute top-0.5 right-1" />
-            {isActive && (
-              <span className="h-1 w-1 rounded-full bg-primary animate-pulse" />
-            )}
           </Link>
         );
       })}

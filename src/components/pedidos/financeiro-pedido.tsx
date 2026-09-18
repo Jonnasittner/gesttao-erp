@@ -45,7 +45,7 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco, custoCal
 
   if (!isPedido && lancamentos.length === 0) {
     return (
-      <section className="flex flex-col gap-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+      <section className="superficie flex flex-col gap-3 border-dashed p-5 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-medium text-foreground">Financeiro do pedido</h2>
           {botaoSugerido}
@@ -67,7 +67,7 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco, custoCal
       : "text-emerald-700 dark:text-emerald-400";
 
   return (
-    <section className="flex flex-col gap-5 rounded-lg border p-4">
+    <section className="superficie flex flex-col gap-6 p-5">
       {/* Sugestões do campo banco na janela "Recebido/Pago" */}
       <datalist id={ID_LISTA_BANCOS}>
         {sugestoesBanco.map((banco) => (
@@ -105,8 +105,8 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco, custoCal
           }
           destaque
         />
-        <div className="flex flex-col gap-1 rounded-xl border bg-card p-3 sm:p-4">
-          <span className="text-xs font-medium text-muted-foreground sm:text-sm">Custos por tipo</span>
+        <div className="flex flex-col gap-1 rounded-xl border bg-card p-4">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Custos por tipo</span>
           {custos.length === 0 ? (
             <span className="text-sm text-muted-foreground">—</span>
           ) : (
@@ -202,8 +202,8 @@ function Resumo({
   destaque?: boolean;
 }) {
   return (
-    <div className={`flex flex-col gap-1 rounded-xl border p-3 sm:p-4 ${destaque ? "bg-muted/50" : "bg-card"}`}>
-      <span className="text-xs font-medium text-muted-foreground sm:text-sm">{titulo}</span>
+    <div className={`flex flex-col gap-1 rounded-xl border p-4 ${destaque ? "bg-muted/40 ring-1 ring-primary/15" : "bg-card"}`}>
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{titulo}</span>
       <span className={`text-lg font-bold tabular-nums sm:text-2xl ${classeValor}`}>{valor}</span>
       <span className="text-[11px] text-muted-foreground sm:text-xs">{detalhe}</span>
     </div>
@@ -246,9 +246,9 @@ function Bloco({
       {antesDaLista}
 
       {itens.length === 0 ? (
-        <p className="rounded-md border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">{vazio}</p>
+        <p className="rounded-xl border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">{vazio}</p>
       ) : (
-        <ul className="divide-y rounded-md border">
+        <ul className="divide-y rounded-xl border">
           {itens.map((l) => (
             <LinhaLancamento key={l.id} lancamento={l} hoje={hoje} voltarPara={voltarPara} />
           ))}

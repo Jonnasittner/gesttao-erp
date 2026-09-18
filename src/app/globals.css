@@ -49,72 +49,82 @@
 }
 
 :root {
-  --background: oklch(0.99 0.006 240);
-  --foreground: oklch(0.22 0.04 240);
+  /* Fundo levemente frio e cartões brancos: dá profundidade sem pesar. */
+  --background: oklch(0.975 0.004 250);
+  --foreground: oklch(0.21 0.03 255);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.04 240);
+  --card-foreground: oklch(0.21 0.03 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.04 240);
-  --primary: oklch(0.56 0.21 260);
-  --primary-foreground: oklch(0.99 0.005 240);
-  --secondary: oklch(0.95 0.015 240);
-  --secondary-foreground: oklch(0.3 0.08 250);
-  --muted: oklch(0.96 0.01 240);
-  --muted-foreground: oklch(0.48 0.03 240);
-  --accent: oklch(0.94 0.03 255);
-  --accent-foreground: oklch(0.38 0.18 265);
-  --destructive: oklch(0.60 0.22 25);
-  --border: oklch(0.91 0.015 240);
-  --input: oklch(0.91 0.015 240);
-  --ring: oklch(0.56 0.21 260 / 40%);
-  --chart-1: oklch(0.56 0.21 260);
-  --chart-2: oklch(0.65 0.19 145);
-  --chart-3: oklch(0.68 0.16 200);
-  --chart-4: oklch(0.60 0.20 300);
-  --chart-5: oklch(0.68 0.18 60);
+  --popover-foreground: oklch(0.21 0.03 255);
+  --primary: oklch(0.55 0.21 268);
+  --primary-foreground: oklch(0.99 0.005 250);
+  --secondary: oklch(0.96 0.008 250);
+  --secondary-foreground: oklch(0.3 0.06 258);
+  --muted: oklch(0.965 0.007 250);
+  --muted-foreground: oklch(0.52 0.025 255);
+  --accent: oklch(0.955 0.02 265);
+  --accent-foreground: oklch(0.42 0.16 268);
+  --destructive: oklch(0.58 0.21 25);
+  --border: oklch(0.925 0.008 255);
+  --input: oklch(0.915 0.01 255);
+  --ring: oklch(0.55 0.21 268 / 35%);
+  --chart-1: oklch(0.55 0.21 268);
+  --chart-2: oklch(0.65 0.19 155);
+  --chart-3: oklch(0.7 0.15 210);
+  --chart-4: oklch(0.62 0.2 305);
+  --chart-5: oklch(0.72 0.17 65);
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0.006 240);
-  --sidebar-foreground: oklch(0.25 0.04 240);
-  --sidebar-primary: oklch(0.56 0.21 260);
-  --sidebar-primary-foreground: oklch(0.99 0.005 240);
-  --sidebar-accent: oklch(0.93 0.03 255);
-  --sidebar-accent-foreground: oklch(0.38 0.18 265);
-  --sidebar-border: oklch(0.92 0.015 240);
-  --sidebar-ring: oklch(0.56 0.21 260 / 40%);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.32 0.03 255);
+  --sidebar-primary: oklch(0.55 0.21 268);
+  --sidebar-primary-foreground: oklch(0.99 0.005 250);
+  --sidebar-accent: oklch(0.955 0.02 265);
+  --sidebar-accent-foreground: oklch(0.42 0.16 268);
+  --sidebar-border: oklch(0.93 0.008 255);
+  --sidebar-ring: oklch(0.55 0.21 268 / 35%);
+
+  /* Sombras em camadas (o segredo do ar entre os elementos). */
+  --sombra-suave: 0 1px 2px oklch(0.25 0.04 258 / 6%), 0 1px 3px oklch(0.25 0.04 258 / 4%);
+  --sombra-media: 0 1px 2px oklch(0.25 0.04 258 / 6%), 0 12px 28px -18px oklch(0.25 0.04 258 / 35%);
+  --sombra-alta: 0 2px 4px oklch(0.25 0.04 258 / 6%), 0 24px 48px -24px oklch(0.25 0.04 258 / 38%);
 }
 
 .dark {
-  --background: oklch(0.12 0.02 245);
-  --foreground: oklch(0.95 0.015 240);
-  --card: oklch(0.15 0.02 245);
-  --card-foreground: oklch(0.95 0.015 240);
-  --popover: oklch(0.15 0.02 245);
-  --popover-foreground: oklch(0.95 0.015 240);
-  --primary: oklch(0.65 0.20 260);
-  --primary-foreground: oklch(0.12 0.02 245);
-  --secondary: oklch(0.19 0.025 245);
-  --secondary-foreground: oklch(0.95 0.015 240);
-  --muted: oklch(0.18 0.02 245);
-  --muted-foreground: oklch(0.72 0.03 240);
-  --accent: oklch(0.20 0.04 250);
-  --accent-foreground: oklch(0.85 0.08 260);
-  --destructive: oklch(0.62 0.20 25);
-  --border: oklch(0.20 0.025 245);
-  --input: oklch(0.20 0.025 245);
-  --ring: oklch(0.65 0.20 260 / 50%);
-  --chart-1: oklch(0.65 0.20 260);
-  --chart-2: oklch(0.65 0.19 145);
-  --chart-3: oklch(0.68 0.16 200);
-  --chart-4: oklch(0.60 0.20 300);
-  --chart-5: oklch(0.68 0.18 60);
-  --sidebar: oklch(0.10 0.02 245);
-  --sidebar-foreground: oklch(0.95 0.015 240);
-  --sidebar-primary: oklch(0.65 0.20 260);
-  --sidebar-primary-foreground: oklch(0.10 0.02 245);
-  --sidebar-accent: oklch(0.17 0.035 248);
-  --sidebar-accent-foreground: oklch(0.95 0.015 240);
-  --sidebar-border: oklch(0.16 0.02 245);
-  --sidebar-ring: oklch(0.65 0.20 260 / 50%);
+  --background: oklch(0.16 0.018 262);
+  --foreground: oklch(0.96 0.008 250);
+  --card: oklch(0.2 0.02 262);
+  --card-foreground: oklch(0.96 0.008 250);
+  --popover: oklch(0.2 0.02 262);
+  --popover-foreground: oklch(0.96 0.008 250);
+  --primary: oklch(0.68 0.18 268);
+  --primary-foreground: oklch(0.16 0.018 262);
+  --secondary: oklch(0.24 0.022 262);
+  --secondary-foreground: oklch(0.96 0.008 250);
+  --muted: oklch(0.235 0.02 262);
+  --muted-foreground: oklch(0.72 0.025 255);
+  --accent: oklch(0.27 0.045 265);
+  --accent-foreground: oklch(0.87 0.08 268);
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(0.28 0.022 262);
+  --input: oklch(0.3 0.025 262);
+  --ring: oklch(0.68 0.18 268 / 45%);
+  --chart-1: oklch(0.68 0.18 268);
+  --chart-2: oklch(0.7 0.17 155);
+  --chart-3: oklch(0.72 0.14 210);
+  --chart-4: oklch(0.68 0.18 305);
+  --chart-5: oklch(0.75 0.16 65);
+  --sidebar: oklch(0.18 0.02 262);
+  --sidebar-foreground: oklch(0.9 0.012 250);
+  --sidebar-primary: oklch(0.68 0.18 268);
+  --sidebar-primary-foreground: oklch(0.16 0.018 262);
+  --sidebar-accent: oklch(0.26 0.04 265);
+  --sidebar-accent-foreground: oklch(0.93 0.01 250);
+  --sidebar-border: oklch(0.26 0.02 262);
+  --sidebar-ring: oklch(0.68 0.18 268 / 45%);
+
+  --sombra-suave: 0 1px 2px oklch(0 0 0 / 40%);
+  --sombra-media: 0 1px 2px oklch(0 0 0 / 40%), 0 14px 30px -18px oklch(0 0 0 / 70%);
+  --sombra-alta: 0 2px 4px oklch(0 0 0 / 45%), 0 28px 50px -24px oklch(0 0 0 / 75%);
 }
 
 @layer base {
@@ -189,4 +199,75 @@
 
 .glass-card {
   @apply backdrop-blur-xl bg-white/70 dark:bg-black/45 border border-white/20 dark:border-white/5 shadow-2xl;
+}
+/* ---------------------------------------------------------------------------
+   Acabamento visual compartilhado
+   --------------------------------------------------------------------------- */
+
+/* Superfície padrão de bloco de conteúdo (cartões, tabelas, painéis). */
+.superficie {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--sombra-suave);
+}
+
+/* Cartões clicáveis: sobem de leve no hover. */
+.superficie-interativa {
+  transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+}
+.superficie-interativa:hover {
+  box-shadow: var(--sombra-media);
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+}
+
+.sombra-suave { box-shadow: var(--sombra-suave); }
+.sombra-media { box-shadow: var(--sombra-media); }
+.sombra-alta { box-shadow: var(--sombra-alta); }
+
+/* Marca: "Gesttão" e o quadradinho do logo. */
+.texto-marca {
+  background-image: linear-gradient(100deg, var(--primary), oklch(0.62 0.19 320));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.marca-quadrado {
+  background-image: linear-gradient(140deg, var(--primary), oklch(0.6 0.2 315));
+  box-shadow: 0 6px 16px -8px var(--primary);
+}
+
+/* Fundo da área de conteúdo: um brilho suave atrás dos cartões. */
+.fundo-conteudo {
+  background-image:
+    radial-gradient(60rem 30rem at 12% -10%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 60%),
+    radial-gradient(45rem 26rem at 100% 0%, color-mix(in oklch, oklch(0.62 0.19 320) 7%, transparent), transparent 55%);
+}
+
+/* Barra de rolagem discreta. */
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+}
+
+/* Esqueleto de carregamento com brilho passando. */
+.esqueleto {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    color-mix(in oklch, var(--muted), var(--card) 60%) 37%,
+    var(--muted) 63%
+  );
+  background-size: 400% 100%;
+  animation: brilhoEsqueleto 1.4s ease infinite;
+}
+
+@keyframes brilhoEsqueleto {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto { animation: none; }
+  .superficie-interativa:hover { transform: none; }
 }

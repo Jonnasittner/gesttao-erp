@@ -51,7 +51,7 @@ export function UsuariosSecao({ usuarios, usuarioAtualId }: UsuariosSecaoProps) 
         <UsuarioDialog />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>

@@ -32,11 +32,11 @@ export function AgendamentosClient({ atendimentos, cadastros, pedidos }: Agendam
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-            Agenda de Contatos
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.7rem]">
+            Agenda de contatos
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Visualize os agendamentos por mês e gerencie os retornos dos clientes.
+          <p className="mt-1 text-sm text-muted-foreground">
+            Veja os agendamentos do mês, os orçamentos do dia e o que virou pedido.
           </p>
         </div>
       </div>

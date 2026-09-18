@@ -393,7 +393,7 @@ export function CrmCalendar({
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       {/* Top Header: Controls & Search */}
-      <div className="flex flex-col gap-3 bg-card p-4 rounded-2xl border border-muted shadow-sm">
+      <div className="superficie flex flex-col gap-3 p-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Month Title and Nav */}
           <div className="flex items-center gap-3">
@@ -477,7 +477,7 @@ export function CrmCalendar({
         <div
           className={`${
             selectedDateKey ? "lg:col-span-8" : "lg:col-span-12"
-          } flex flex-col bg-card rounded-2xl border border-muted shadow-sm overflow-hidden`}
+          } superficie flex flex-col overflow-hidden`}
         >
           {/* Days of Week Header */}
           <div className="grid grid-cols-7 border-b border-muted/40 bg-muted/20 text-center py-2.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -581,7 +581,7 @@ export function CrmCalendar({
         {/* Right Column: painel do dia, só aparece depois de clicar num dia */}
         {selectedDateKey && (
         <div ref={painelRef} className="lg:col-span-4 flex flex-col gap-4 animate-fade-in">
-          <Card className="border-muted shadow-sm rounded-2xl overflow-hidden h-full flex flex-col">
+          <Card className="superficie h-full overflow-hidden flex flex-col">
             <CardHeader className="p-4 bg-muted/20 border-b border-muted/40 pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-bold capitalize flex items-center gap-2 text-foreground">

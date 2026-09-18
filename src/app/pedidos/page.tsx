@@ -21,6 +21,7 @@ import { calcularMargemPedido } from "@/lib/financeiro";
 import type { Lancamento } from "@/lib/types";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function PedidosPage() {
   const [pedidos, clientes, produtos, empresa, lancamentos] = await Promise.all([
@@ -41,17 +42,20 @@ export default async function PedidosPage() {
   const opcoesClientes = clientes.map((c) => ({ value: c.id, label: c.nome }));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Pedidos</h1>
-        <NovoPedidoDialog
-          clientes={opcoesClientes}
-          produtosIniciais={produtos}
-          observacaoPadrao={empresa?.observacaoPadraoPedido}
-        />
-      </div>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        titulo="Pedidos e orçamentos"
+        descricao="Acompanhe o que foi orçado, o que virou pedido e a margem de cada um."
+        acoes={
+          <NovoPedidoDialog
+            clientes={opcoesClientes}
+            produtosIniciais={produtos}
+            observacaoPadrao={empresa?.observacaoPadraoPedido}
+          />
+        }
+      />
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="superficie overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

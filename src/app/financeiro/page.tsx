@@ -23,6 +23,8 @@ import {
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO, hojeISO } from "@/lib/datetime";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { ROTULOS_CATEGORIA_CUSTO, ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
 import type { Lancamento } from "@/lib/types";
 
@@ -79,20 +81,20 @@ export default async function FinanceiroPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Financeiro</h1>
-          <p className="text-sm text-muted-foreground">Recebimentos de clientes e pagamentos a fornecedores.</p>
-        </div>
-        <Button
-          nativeButton={false}
-          render={
-            <Link href="/financeiro/novo">
-              <PlusIcon /> Novo lançamento
-            </Link>
-          }
-        />
-      </div>
+      <PageHeader
+        titulo="Financeiro"
+        descricao="Recebimentos de clientes e pagamentos a fornecedores."
+        acoes={
+          <Button
+            nativeButton={false}
+            render={
+              <Link href="/financeiro/novo">
+                <PlusIcon /> Novo lançamento
+              </Link>
+            }
+          />
+        }
+      />
 
       {/* Sugestões do campo banco na janela "Recebido/Pago" */}
       <datalist id={ID_LISTA_BANCOS}>
@@ -103,32 +105,32 @@ export default async function FinanceiroPage({
 
       {/* Resumo */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CartaoResumo
+        <StatCard
           titulo="A receber de clientes"
-          valor={resumo.aReceber}
+          valor={formatarMoeda(resumo.aReceber)}
           detalhe={`Já recebido: ${formatarMoeda(resumo.recebido)}`}
           classeValor="text-emerald-700 dark:text-emerald-400"
           href={link({ tipo: "RECEBER", status: "" })}
         />
-        <CartaoResumo
+        <StatCard
           titulo="A pagar a fornecedores"
-          valor={resumo.aPagar}
+          valor={formatarMoeda(resumo.aPagar)}
           detalhe={`Já pago: ${formatarMoeda(resumo.pago)}`}
           classeValor="text-rose-700 dark:text-rose-400"
           href={link({ tipo: "PAGAR", status: "" })}
         />
-        <CartaoResumo
+        <StatCard
           titulo="Saldo previsto"
-          valor={resumo.saldoPrevisto}
+          valor={formatarMoeda(resumo.saldoPrevisto)}
           detalhe="A receber − a pagar (pendentes)"
           classeValor={
             resumo.saldoPrevisto < 0 ? "text-rose-700 dark:text-rose-400" : "text-foreground"
           }
           href={link({ tipo: "", status: "" })}
         />
-        <CartaoResumo
+        <StatCard
           titulo="Vencidos"
-          valor={resumo.vencidoReceber + resumo.vencidoPagar}
+          valor={formatarMoeda(resumo.vencidoReceber + resumo.vencidoPagar)}
           detalhe={
             resumo.qtdVencidos
               ? `Receber ${formatarMoeda(resumo.vencidoReceber)} · Pagar ${formatarMoeda(resumo.vencidoPagar)}`
@@ -160,7 +162,7 @@ export default async function FinanceiroPage({
       {/* Lista — celular: cartões */}
       <div className="flex flex-col gap-2 sm:hidden">
         {lista.length === 0 && (
-          <p className="rounded-lg border py-10 text-center text-sm text-muted-foreground">
+          <p className="superficie py-10 text-center text-sm text-muted-foreground">
             Nenhum lançamento{todos.length === 0 ? " ainda." : " com esses filtros."}
           </p>
         )}
@@ -170,7 +172,7 @@ export default async function FinanceiroPage({
       </div>
 
       {/* Lista — PC: tabela */}
-      <div className="hidden overflow-x-auto rounded-lg border sm:block">
+      <div className="superficie hidden overflow-x-auto sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -313,7 +315,7 @@ function CartaoLancamento({
   ].filter(Boolean);
 
   return (
-    <div className={`flex flex-col gap-2 rounded-lg border border-l-4 bg-card p-3 ${aReceber ? "border-l-emerald-500" : "border-l-rose-500"}`}>
+    <div className={`superficie flex flex-col gap-2 border-l-4 p-3 ${aReceber ? "border-l-emerald-500" : "border-l-rose-500"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link href={`/financeiro/${l.id}`} className="font-mono text-xs text-muted-foreground hover:underline">
@@ -352,38 +354,19 @@ function CartaoLancamento({
   );
 }
 
-function CartaoResumo({
-  titulo,
-  valor,
-  detalhe,
-  classeValor,
-  href,
-}: {
-  titulo: string;
-  valor: number;
-  detalhe: string;
-  classeValor: string;
-  href: string;
-}) {
-  return (
-    <Link href={href} className="flex flex-col gap-1 rounded-xl border bg-card p-3 transition-colors hover:bg-accent/50 sm:p-4">
-      <span className="text-xs font-medium text-muted-foreground sm:text-sm">{titulo}</span>
-      <span className={`text-lg font-bold tabular-nums sm:text-2xl ${classeValor}`}>{formatarMoeda(valor)}</span>
-      <span className="text-[11px] text-muted-foreground sm:text-xs">{detalhe}</span>
-    </Link>
-  );
-}
 
 function GrupoFiltro({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1">{children}</div>;
+  return <div className="flex flex-wrap gap-1 rounded-xl border bg-muted/40 p-1">{children}</div>;
 }
 
 function BotaoFiltro({ href, ativo, children }: { href: string; ativo: boolean; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-        ativo ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+        ativo
+          ? "bg-card text-foreground sombra-suave ring-1 ring-border"
+          : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
       }`}
     >
       {children}

@@ -66,10 +66,10 @@ export function FotosPedido({ pedidoId, fotos }: { pedidoId: string; fotos: Foto
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-4">
+    <div className="superficie flex flex-col gap-3 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-medium text-muted-foreground">
+          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Fotos {fotos.length > 0 && `(${fotos.length}/${MAX_FOTOS_PEDIDO})`}
           </h2>
           <p className="text-xs text-muted-foreground">Aparecem no PDF, acima das observações.</p>
