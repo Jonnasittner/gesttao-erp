@@ -28,3 +28,14 @@ export async function comprimirImagem(arquivo: File, ladoMaximo = 1600, qualidad
   const nome = arquivo.name.replace(/\.[^.]+$/, "") || "foto";
   return new File([blob], `${nome}.jpg`, { type: "image/jpeg" });
 }
+
+/** Versão pequena da foto em data URI, só para a prévia do PDF (não é o arquivo salvo). */
+export async function dataUriParaPrevia(arquivo: File): Promise<string> {
+  const reduzida = await comprimirImagem(arquivo, 900, 0.7);
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolve(String(leitor.result));
+    leitor.onerror = () => reject(new Error("Não foi possível ler a foto."));
+    leitor.readAsDataURL(reduzida);
+  });
+}

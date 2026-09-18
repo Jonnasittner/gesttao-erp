@@ -18,9 +18,11 @@ export async function gerarPdfOrcamento(
     previa?: boolean;
     /** De qual pedido salvo buscar as fotos (na prévia de edição o id é "previa"). */
     fotosDoPedidoId?: string;
+    /** Fotos já prontas (prévia de orçamento novo); têm prioridade sobre as salvas. */
+    fotos?: string[];
   } = {}
 ): Promise<Buffer> {
-  const idFotos = opcoes.fotosDoPedidoId ?? (opcoes.previa ? undefined : pedido.id);
+  const idFotos = opcoes.fotos ? undefined : opcoes.fotosDoPedidoId ?? (opcoes.previa ? undefined : pedido.id);
   const produtoIds = [...new Set(pedido.itens.map((item) => item.produtoId).filter(Boolean))];
 
   const [
@@ -44,7 +46,7 @@ export async function gerarPdfOrcamento(
     lerImagemEmpresa("site"),
     lerImagemEmpresa("email"),
     Promise.all(produtoIds.map((produtoId) => dataUriImagemProduto(produtoId))),
-    idFotos ? dataUrisFotosPedido(idFotos) : Promise.resolve([]),
+    idFotos ? dataUrisFotosPedido(idFotos) : Promise.resolve(opcoes.fotos ?? []),
   ]);
 
   const imagensProdutos = Object.fromEntries(

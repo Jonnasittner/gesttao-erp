@@ -27,6 +27,7 @@ import {
 import { NovoProdutoDialog, type ProdutoOpcao } from "@/components/pedidos/novo-produto-dialog";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
 import { PreviaPdfBotao } from "@/components/pedidos/previa-pdf-botao";
+import { FotosPedido } from "@/components/pedidos/fotos-pedido";
 import { atualizarPedido } from "@/server/pedidos";
 import { pedidoSchema, type Pedido, type Produto } from "@/lib/types";
 import { formatarMoeda } from "@/lib/moeda";
@@ -362,6 +363,9 @@ export function EditarPedidoDialog({
             <span>Total</span>
             <span>{formatarMoeda(total)}</span>
           </div>
+
+          {/* Fotos são salvas na hora (não dependem do botão "Salvar alterações"). */}
+          <FotosPedido pedidoId={pedido.id} fotos={pedido.fotos} />
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="observacaoPedidoEdit">Observações</Label>

@@ -27,7 +27,9 @@ import {
 import { NovoProdutoDialog, type ProdutoOpcao } from "@/components/pedidos/novo-produto-dialog";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
 import { PreviaPdfBotao } from "@/components/pedidos/previa-pdf-botao";
-import { criarPedido } from "@/server/pedidos";
+import { FotosNovoOrcamento, liberarPreviews, type FotoNova } from "@/components/pedidos/fotos-novo-orcamento";
+import { criarPedido, enviarFotoPedido } from "@/server/pedidos";
+import { dataUriParaPrevia } from "@/lib/comprimir-imagem";
 import { pedidoSchema, type Produto } from "@/lib/types";
 import { formatarMoeda } from "@/lib/moeda";
 
@@ -80,6 +82,7 @@ export function NovoPedidoDialog({
   const [itens, setItens] = useState<ItemForm[]>([itemVazio()]);
   const observacaoTextoPadrao = observacaoPadrao ?? OBSERVACAO_PADRAO;
   const [observacao, setObservacao] = useState(observacaoTextoPadrao);
+  const [fotos, setFotos] = useState<FotoNova[]>([]);
 
   const total = itens.reduce(
     (soma, item) => soma + (Number(item.quantidade) || 0) * (Number(item.precoUnitario) || 0),
@@ -90,6 +93,8 @@ export function NovoPedidoDialog({
     setCliente(null);
     setItens([itemVazio()]);
     setObservacao(observacaoTextoPadrao);
+    liberarPreviews(fotos);
+    setFotos([]);
   }
 
   function atualizarItem(chave: string, patch: Partial<ItemForm>) {
@@ -128,8 +133,27 @@ export function NovoPedidoDialog({
 
     startTransition(async () => {
       try {
-        await criarPedido(dados);
-        toast.success("Orçamento criado.");
+        const { id, numero } = await criarPedido(dados);
+
+        // As fotos só podem ser enviadas depois que o orçamento existe.
+        let falhas = 0;
+        for (const foto of fotos) {
+          try {
+            const formData = new FormData();
+            formData.set("foto", foto.arquivo);
+            await enviarFotoPedido(id, formData);
+          } catch {
+            falhas++;
+          }
+        }
+
+        if (falhas > 0) {
+          toast.warning(
+            `Orçamento ${String(numero).padStart(4, "0")} criado, mas ${falhas === 1 ? "1 foto não foi enviada" : `${falhas} fotos não foram enviadas`}. Adicione na tela do orçamento.`
+          );
+        } else {
+          toast.success("Orçamento criado.");
+        }
         setOpen(false);
         resetar();
         router.refresh();
@@ -311,6 +335,8 @@ export function NovoPedidoDialog({
             <span>{formatarMoeda(total)}</span>
           </div>
 
+          <FotosNovoOrcamento fotos={fotos} onChange={setFotos} desabilitado={isPending} />
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="observacaoPedido">Observações</Label>
             <Textarea
@@ -326,6 +352,7 @@ export function NovoPedidoDialog({
         <DialogFooter>
           <PreviaPdfBotao
             montarDados={montarDados}
+            fotosParaPrevia={() => Promise.all(fotos.map((f) => dataUriParaPrevia(f.arquivo)))}
             onSalvar={handleSubmit}
             salvando={isPending}
             textoSalvar="Salvar orçamento"

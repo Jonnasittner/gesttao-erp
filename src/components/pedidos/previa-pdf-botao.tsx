@@ -15,6 +15,8 @@ interface PreviaPdfBotaoProps {
   createdAt?: string;
   /** Só na edição: para a prévia incluir as fotos do orçamento. */
   pedidoId?: string;
+  /** Só na criação: fotos escolhidas e ainda não salvas (data URIs reduzidos). */
+  fotosParaPrevia?: () => Promise<string[]>;
   onSalvar: () => void;
   salvando: boolean;
   textoSalvar: string;
@@ -25,6 +27,7 @@ export function PreviaPdfBotao({
   numero,
   createdAt,
   pedidoId,
+  fotosParaPrevia,
   onSalvar,
   salvando,
   textoSalvar,
@@ -46,7 +49,13 @@ export function PreviaPdfBotao({
       const resposta = await fetch("/api/pedidos/previa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dados, numero, createdAt, pedidoId }),
+        body: JSON.stringify({
+          dados,
+          numero,
+          createdAt,
+          pedidoId,
+          fotos: fotosParaPrevia ? await fotosParaPrevia() : undefined,
+        }),
       });
       if (!resposta.ok) {
         throw new Error((await resposta.text()) || "Não foi possível gerar a prévia.");

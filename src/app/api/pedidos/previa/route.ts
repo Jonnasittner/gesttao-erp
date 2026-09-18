@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { gerarPdfOrcamento } from "@/lib/gerar-pdf-orcamento";
-import { pedidoSchema, type Pedido } from "@/lib/types";
+import { MAX_FOTOS_PEDIDO, pedidoSchema, type Pedido } from "@/lib/types";
+
+// Fotos ainda não salvas vêm em data URI reduzido; limita o tamanho total para
+// caber no corpo da requisição da função do Netlify.
+const LIMITE_FOTOS_PREVIA_CARACTERES = 4_500_000;
 
 // Gera o PDF com os dados que ainda estão no formulário, sem gravar nada.
 // Corpo: { dados: PedidoInput, numero?: number, createdAt?: string, pedidoId?: string } —
@@ -30,9 +34,19 @@ export async function POST(req: Request) {
     updatedAt: new Date().toISOString(),
   };
 
-  // Na edição, a prévia mostra as fotos já anexadas ao orçamento salvo.
+  // Na edição, a prévia mostra as fotos já anexadas ao orçamento salvo;
+  // na criação, as fotos escolhidas vêm no corpo (ainda não existem no storage).
   const fotosDoPedidoId = typeof corpo.pedidoId === "string" && corpo.pedidoId ? corpo.pedidoId : undefined;
-  const pdfBuffer = await gerarPdfOrcamento(pedido, { previa: true, fotosDoPedidoId });
+  const fotosEnviadas: string[] | undefined = Array.isArray(corpo.fotos)
+    ? corpo.fotos
+        .filter((f: unknown): f is string => typeof f === "string" && f.startsWith("data:image/jpeg;base64,"))
+        .slice(0, MAX_FOTOS_PEDIDO)
+    : undefined;
+  if (fotosEnviadas && fotosEnviadas.reduce((total, f) => total + f.length, 0) > LIMITE_FOTOS_PREVIA_CARACTERES) {
+    return new NextResponse("Fotos grandes demais para a prévia.", { status: 413 });
+  }
+
+  const pdfBuffer = await gerarPdfOrcamento(pedido, { previa: true, fotosDoPedidoId, fotos: fotosEnviadas });
 
   return new NextResponse(new Blob([Uint8Array.from(pdfBuffer)]), {
     headers: {
