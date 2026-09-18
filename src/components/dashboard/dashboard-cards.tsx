@@ -199,7 +199,9 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
     [pedidosFechados]
   );
   const lucroTotalFechados = faturamentoTotal - custoTotalFechados;
-  const margemGeralPct = faturamentoTotal > 0 ? (lucroTotalFechados / faturamentoTotal) * 100 : 0;
+  // Markup: o lucro sobre o CUSTO (e não sobre a venda, que seria a margem).
+  // null quando não há custo cadastrado nos produtos — aí não dá para calcular.
+  const markupGeralPct = custoTotalFechados > 0 ? (lucroTotalFechados / custoTotalFechados) * 100 : null;
 
   const valorOrcamentosTotais = useMemo(
     () => orcamentosPendentes.reduce((acc, p) => acc + p.faturamento, 0),
@@ -293,7 +295,11 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
             <div className="mt-1 flex items-center justify-between">
               <div className="flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400">
                 <Percent className="h-3.5 w-3.5" />
-                <span>Margem de {margemGeralPct.toFixed(1)}%</span>
+                <span>
+                  {markupGeralPct === null
+                    ? "Sem custo cadastrado"
+                    : `Markup de ${markupGeralPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`}
+                </span>
               </div>
               <Maximize2 className="h-3 w-3 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
