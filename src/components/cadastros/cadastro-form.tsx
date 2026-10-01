@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { Loader2, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,10 +18,15 @@ import {
 } from "@/components/ui/select";
 import { TextComboboxField } from "@/components/cadastros/text-combobox-field";
 import { atualizarCadastro, buscarCadastroPorDocumento, criarCadastro } from "@/server/cadastros";
+import { consultarCnpj, type DadosCnpj } from "@/server/cnpj";
 import type { SugestoesEndereco } from "@/server/enderecos";
 import { cadastroSchema, TIPO_CADASTRO, type Cadastro, type CadastroInput } from "@/lib/types";
 import { formatarTelefone } from "@/lib/telefone";
 import { formatarCpfCnpj } from "@/lib/documento";
+
+/** Destaque dos campos preenchidos pela consulta ao CNPJ. */
+const CLASSE_AUTO =
+  "bg-amber-50 border-amber-300 focus-visible:border-amber-400 dark:bg-amber-500/10 dark:border-amber-700/70";
 
 const ROTULOS_TIPO_CADASTRO: Record<(typeof TIPO_CADASTRO)[number], string> = {
   CLIENTE: "Cliente",
@@ -166,15 +172,110 @@ export function CadastroForm({
   const [estado, setEstado] = useState(cadastro?.estado ?? "");
   const [ramoAtividade, setRamoAtividade] = useState(cadastro?.ramoAtividade ?? "");
   const [telefone, setTelefone] = useState(formatarTelefone(cadastro?.telefone ?? ""));
+  const [email, setEmail] = useState(cadastro?.email ?? "");
+  const [endereco, setEndereco] = useState(cadastro?.endereco ?? "");
+  const [numero, setNumero] = useState(cadastro?.numero ?? "");
+  const [complemento, setComplemento] = useState(cadastro?.complemento ?? "");
+  const [bairro, setBairro] = useState(cadastro?.bairro ?? "");
   const [cadastroDuplicado, setCadastroDuplicado] = useState<Cadastro | null>(null);
 
-  // Se a cidade já foi cadastrada antes com um estado, preenche sozinho
-  useEffect(() => {
-    if (!cidade.trim() || estado.trim()) return;
-    const conhecido = sugestoesEndereco.estadoPorCidade[cidade.trim()];
+  // Campos preenchidos pela consulta ao CNPJ: ficam amarelos até serem editados.
+  const [camposAuto, setCamposAuto] = useState<Set<string>>(new Set());
+  const [buscandoCnpj, setBuscandoCnpj] = useState(false);
+  const ultimoCnpjBuscado = useRef("");
+
+  /** Classe do campo: amarelo quando veio da consulta. */
+  function classeAuto(campo: string) {
+    return camposAuto.has(campo) ? CLASSE_AUTO : "";
+  }
+
+  /** Ao editar à mão, o campo deixa de ser "automático" (sai o amarelo). */
+  function editar(campo: string, definir: (valor: string) => void) {
+    return (valor: string) => {
+      definir(valor);
+      setCamposAuto((atual) => {
+        if (!atual.has(campo)) return atual;
+        const novo = new Set(atual);
+        novo.delete(campo);
+        return novo;
+      });
+    };
+  }
+
+  function aplicarDadosCnpj(dados: DadosCnpj, sobrescrever: boolean) {
+    const preenchidos: string[] = [];
+    const aplicar = (campo: string, valorAtual: string, novoValor: string, definir: (v: string) => void) => {
+      if (!novoValor) return;
+      if (!sobrescrever && valorAtual.trim()) return;
+      definir(novoValor);
+      preenchidos.push(campo);
+    };
+
+    aplicar("nome", nome, dados.nome.toUpperCase(), setNome);
+    aplicar("telefone", telefone, dados.telefone, setTelefone);
+    aplicar("email", email, dados.email, setEmail);
+    aplicar("endereco", endereco, dados.endereco.toUpperCase(), setEndereco);
+    aplicar("numero", numero, dados.numero.toUpperCase(), setNumero);
+    aplicar("complemento", complemento, dados.complemento.toUpperCase(), setComplemento);
+    aplicar("bairro", bairro, dados.bairro.toUpperCase(), setBairro);
+    aplicar("cidade", cidade, dados.cidade.toUpperCase(), setCidade);
+    aplicar("estado", estado, dados.estado.toUpperCase(), setEstado);
+    aplicar("ramoAtividade", ramoAtividade, dados.ramoAtividade.toUpperCase(), setRamoAtividade);
+
+    setCamposAuto((atual) => new Set([...atual, ...preenchidos]));
+    return preenchidos.length;
+  }
+
+  async function buscarCnpj(documentoBuscado: string, sobrescrever: boolean) {
+    const digitos = documentoBuscado.replace(/\D/g, "");
+    if (digitos.length !== 14) {
+      toast.error("Informe os 14 dígitos do CNPJ para buscar.");
+      return;
+    }
+
+    setBuscandoCnpj(true);
+    ultimoCnpjBuscado.current = digitos;
+    try {
+      const resultado = await consultarCnpj(digitos);
+      if (!resultado.ok) {
+        toast.error(resultado.erro);
+        return;
+      }
+
+      const quantos = aplicarDadosCnpj(resultado.dados, sobrescrever);
+      if (quantos === 0) {
+        toast.info("Os dados do CNPJ já estavam preenchidos.");
+      } else {
+        toast.success(`${resultado.dados.nome || "Empresa"}: ${quantos} campo${quantos === 1 ? "" : "s"} preenchido${quantos === 1 ? "" : "s"}.`);
+      }
+      if (resultado.dados.situacao && resultado.dados.situacao !== "ATIVA") {
+        toast.warning(`Situação na Receita Federal: ${resultado.dados.situacao}.`);
+      }
+    } finally {
+      setBuscandoCnpj(false);
+    }
+  }
+
+  /** Digitou os 14 dígitos: busca sozinho (só completa o que está vazio). */
+  function alterarDocumento(valor: string) {
+    const formatado = formatarCpfCnpjInput(valor);
+    setDocumento(formatado);
+    const digitos = formatado.replace(/\D/g, "");
+    if (digitos.length === 14 && digitos !== ultimoCnpjBuscado.current) {
+      void buscarCnpj(digitos, false);
+    }
+  }
+
+  /**
+   * Ao digitar a cidade, completa o estado se essa cidade já foi usada antes
+   * em outro cadastro (e o estado ainda estiver vazio).
+   */
+  function alterarCidade(valor: string) {
+    editar("cidade", setCidade)(valor);
+    if (estado.trim()) return;
+    const conhecido = sugestoesEndereco.estadoPorCidade[valor.trim()];
     if (conhecido) setEstado(conhecido);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cidade]);
+  }
 
   async function handleSubmit(formData: FormData) {
     // Verificar duplicata de CPF/CNPJ antes de tudo
@@ -197,11 +298,11 @@ export function CadastroForm({
       nome,
       documento,
       telefone,
-      email: String(formData.get("email") ?? ""),
-      endereco: String(formData.get("endereco") ?? ""),
-      numero: String(formData.get("numero") ?? ""),
-      complemento: String(formData.get("complemento") ?? ""),
-      bairro: String(formData.get("bairro") ?? ""),
+      email,
+      endereco,
+      numero,
+      complemento,
+      bairro,
       cidade,
       estado,
       nomeContato: String(formData.get("nomeContato") ?? ""),
@@ -260,20 +361,41 @@ export function CadastroForm({
           id="nome"
           label="Nome *"
           value={nome}
-          onChange={setNome}
+          onChange={editar("nome", setNome)}
           suggestions={sugestoesEndereco.nome ?? []}
+          className={classeAuto("nome")}
         />
         {erros.nome && <p className="text-sm text-destructive">{erros.nome}</p>}
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="documento">CPF/CNPJ</Label>
-          <Input
-            id="documento"
-            value={documento}
-            onChange={(e) => setDocumento(formatarCpfCnpjInput(e.target.value))}
-            placeholder="000.000.000-00 ou 00.000.000/0000-00"
-            inputMode="numeric"
-          />
+          <div className="flex gap-2">
+            <Input
+              id="documento"
+              value={documento}
+              onChange={(e) => alterarDocumento(e.target.value)}
+              placeholder="000.000.000-00 ou 00.000.000/0000-00"
+              inputMode="numeric"
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={buscandoCnpj || documento.replace(/\D/g, "").length !== 14}
+              onClick={() => buscarCnpj(documento, true)}
+              title="Buscar os dados na Receita Federal e substituir o que já estiver preenchido"
+            >
+              {buscandoCnpj ? <Loader2 className="animate-spin" /> : <SearchIcon />}
+              {buscandoCnpj ? "Buscando..." : "Buscar dados"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Ao digitar um CNPJ completo, os dados vêm da Receita Federal e os campos preenchidos ficam{" "}
+            <span className="rounded bg-amber-50 px-1 ring-1 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-700/70">
+              em amarelo
+            </span>
+            . Dá para alterar tudo normalmente.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -283,14 +405,21 @@ export function CadastroForm({
               id="telefone"
               name="telefone"
               value={telefone}
-              onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
+              onChange={(e) => editar("telefone", setTelefone)(formatarTelefone(e.target.value))}
               placeholder="(99) 9999-9999"
               inputMode="tel"
+              className={classeAuto("telefone")}
             />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" name="email" type="email" defaultValue={cadastro?.email} />
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => editar("email", setEmail)(e.target.value)}
+              className={classeAuto("email")}
+            />
             {erros.email && <p className="text-sm text-destructive">{erros.email}</p>}
           </div>
         </div>
@@ -300,18 +429,18 @@ export function CadastroForm({
             <Label htmlFor="endereco">Endereço</Label>
             <Input
               id="endereco"
-              name="endereco"
-              defaultValue={cadastro?.endereco}
-              className="uppercase"
+              value={endereco}
+              onChange={(e) => editar("endereco", setEndereco)(e.target.value.toUpperCase())}
+              className={`uppercase ${classeAuto("endereco")}`}
             />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="numero">Número</Label>
             <Input
               id="numero"
-              name="numero"
-              defaultValue={cadastro?.numero}
-              className="uppercase"
+              value={numero}
+              onChange={(e) => editar("numero", setNumero)(e.target.value.toUpperCase())}
+              className={`uppercase ${classeAuto("numero")}`}
             />
           </div>
         </div>
@@ -320,9 +449,9 @@ export function CadastroForm({
           <Label htmlFor="complemento">Complemento</Label>
           <Input
             id="complemento"
-            name="complemento"
-            defaultValue={cadastro?.complemento}
-            className="uppercase"
+            value={complemento}
+            onChange={(e) => editar("complemento", setComplemento)(e.target.value.toUpperCase())}
+            className={`uppercase ${classeAuto("complemento")}`}
           />
         </div>
 
@@ -331,9 +460,9 @@ export function CadastroForm({
             <Label htmlFor="bairro">Bairro</Label>
             <Input
               id="bairro"
-              name="bairro"
-              defaultValue={cadastro?.bairro}
-              className="uppercase"
+              value={bairro}
+              onChange={(e) => editar("bairro", setBairro)(e.target.value.toUpperCase())}
+              className={`uppercase ${classeAuto("bairro")}`}
             />
           </div>
           {/* Cidade — com lista suspensa de sugestões */}
@@ -341,8 +470,9 @@ export function CadastroForm({
             id="cidade"
             label="Cidade"
             value={cidade}
-            onChange={setCidade}
+            onChange={alterarCidade}
             suggestions={sugestoesEndereco.cidade}
+            className={classeAuto("cidade")}
           />
           <div className="flex flex-col gap-2">
             <Label htmlFor="estado">Estado</Label>
@@ -350,8 +480,8 @@ export function CadastroForm({
               id="estado"
               name="estado"
               value={estado}
-              onChange={(e) => setEstado(e.target.value.toUpperCase())}
-              className="uppercase"
+              onChange={(e) => editar("estado", setEstado)(e.target.value.toUpperCase())}
+              className={`uppercase ${classeAuto("estado")}`}
               maxLength={2}
             />
           </div>
@@ -394,8 +524,9 @@ export function CadastroForm({
           id="ramoAtividade"
           label="Ramo de atividade"
           value={ramoAtividade}
-          onChange={setRamoAtividade}
+          onChange={editar("ramoAtividade", setRamoAtividade)}
           suggestions={sugestoesEndereco.ramoAtividade}
+          className={classeAuto("ramoAtividade")}
         />
 
         <div className="flex flex-col gap-2">

@@ -15,12 +15,15 @@ export function TextComboboxField({
   value,
   onChange,
   suggestions,
+  className = "",
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   suggestions: string[];
+  /** Classe extra no input (ex.: destaque amarelo do preenchimento automático). */
+  className?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -93,7 +96,7 @@ export function TextComboboxField({
         id={id}
         value={value}
         autoComplete="off"
-        className="uppercase placeholder:normal-case"
+        className={`uppercase placeholder:normal-case ${className}`}
         onChange={(e) => {
           onChange(e.target.value.toUpperCase());
           // Abre a lista ao digitar (não ao focar via Tab)

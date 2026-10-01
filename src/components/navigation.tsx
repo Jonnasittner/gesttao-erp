@@ -8,6 +8,7 @@ import {
   Contact,
   LayoutDashboard,
   Loader2,
+  Magnet,
   Package,
   Settings,
   ShoppingCart,
@@ -62,6 +63,7 @@ const GRUPOS: GrupoNav[] = [
       { href: "/financeiro", label: "Financeiro", icon: Wallet },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/configuracoes", label: "Configurações", icon: Settings },
+      { href: "/leads", label: "Geração de Leads", icon: Magnet },
     ],
   },
 ];
