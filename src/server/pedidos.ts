@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { excluirArquivoAnexo, salvarAnexo } from "@/lib/anexos-storage";
 
 import { formatarCodigo } from "@/lib/codigo";
+import { excluirPedidoDoGoogle, sincronizarPedidoComGoogle } from "@/lib/google-calendar";
 import { resolverAtendimentoId } from "@/server/crm";
 
 /** Como a foto fica gravada no documento do pedido. */
@@ -72,6 +73,7 @@ export async function criarPedido(input: PedidoInput) {
     createdAt: now,
     updatedAt: now,
   });
+  await sincronizarPedidoComGoogle(ref.id);
 
   revalidatePath("/pedidos");
   return { id: ref.id, numero };
@@ -90,6 +92,7 @@ export async function atualizarPedido(id: string, input: PedidoInput) {
     total,
     updatedAt: now,
   });
+  await sincronizarPedidoComGoogle(id);
 
   revalidatePath("/pedidos");
   revalidatePath(`/pedidos/${id}`);
@@ -111,8 +114,11 @@ export async function converterEmPedido(id: string) {
   // Atualiza o status do pedido para PEDIDO
   await db.collection("pedidos").doc(id).update({
     status: "PEDIDO",
+    // Dia em que o pedido foi fechado (vira o evento "Ped #..." no Google).
+    convertidoEm: now,
     updatedAt: now,
   });
+  await sincronizarPedidoComGoogle(id);
 
   // Cria interação no CRM para o cadastro como "Pedido Feito" (GANHO)
   const atendimentoId = await resolverAtendimentoId(pedido.cadastroId);
@@ -216,6 +222,7 @@ export async function excluirPedido(id: string) {
   await ref.delete();
   // Remove também os arquivos das fotos; falha em um não impede os outros.
   await Promise.allSettled(fotos.map((f) => excluirArquivoAnexo(f.chave)));
+  await excluirPedidoDoGoogle(id);
 
   revalidatePath("/pedidos");
 }

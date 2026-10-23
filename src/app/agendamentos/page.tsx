@@ -1,16 +1,12 @@
 import { listarCadastros } from "@/server/cadastros";
-import { listarAtendimentos } from "@/server/crm";
-import { listarPedidos } from "@/server/pedidos";
+import { buscarStatusGoogleCalendar } from "@/server/google-calendar";
 import { AgendamentosClient } from "@/components/agendamentos/agendamentos-client";
 
 export default async function AgendamentosPage() {
-  const [atendimentos, cadastros, pedidos] = await Promise.all([
-    listarAtendimentos(),
+  const [cadastros, googleCalendar] = await Promise.all([
     listarCadastros(),
-    listarPedidos(),
+    buscarStatusGoogleCalendar(),
   ]);
 
-  return (
-    <AgendamentosClient atendimentos={atendimentos} cadastros={cadastros} pedidos={pedidos} />
-  );
+  return <AgendamentosClient cadastros={cadastros} emailGoogle={googleCalendar.email} />;
 }

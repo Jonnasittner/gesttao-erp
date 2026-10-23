@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { alterarStatusLancamento, excluirLancamento } from "@/server/financeiro";
+import { CobrancaAsaasBotao } from "@/components/financeiro/cobranca-asaas";
 import { hojeISO } from "@/lib/datetime";
 import { formatarMoeda } from "@/lib/moeda";
 import { ID_LISTA_BANCOS } from "@/lib/financeiro";
@@ -90,6 +91,9 @@ export function LancamentoAcoes({
 
   return (
     <div className="flex items-center justify-end gap-1">
+      {aReceber && (!pago || lancamento.asaas) && (
+        <CobrancaAsaasBotao lancamento={lancamento} documento={documento} />
+      )}
       {pago ? (
         <Button
           type="button"

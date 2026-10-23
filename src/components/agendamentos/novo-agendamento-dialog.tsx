@@ -28,27 +28,45 @@ import {
 } from "@/lib/types";
 import { ROTULOS_ETAPA_ATENDIMENTO, ROTULOS_TIPO_INTERACAO } from "@/lib/rotulos";
 import { agoraDatetimeLocal } from "@/lib/datetime";
+import { AtalhosReagendamento } from "@/components/crm/atalhos-reagendamento";
 
 interface NovoAgendamentoDialogProps {
   cadastros: Cadastro[];
   defaultDateKey?: string; // YYYY-MM-DD
+  defaultTipo?: TipoInteracao;
+  defaultEtapa?: EtapaAtendimento;
+  /** Cliente já escolhido (ex.: reagendar o retorno de um orçamento). */
+  defaultCadastroId?: string;
+  defaultDescricao?: string;
+  /** Título do modal; padrão "Novo Agendamento de Contato". */
+  titulo?: string;
   buttonVariant?: "default" | "outline" | "secondary" | "ghost";
   buttonSize?: "default" | "sm" | "lg" | "icon";
   buttonText?: string;
+  buttonIcon?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   hideTrigger?: boolean;
+  /** Chamado depois que o agendamento é salvo. */
+  onCriado?: () => void;
 }
 
 export function NovoAgendamentoDialog({
   cadastros,
   defaultDateKey,
+  defaultTipo,
+  defaultEtapa,
+  defaultCadastroId,
+  defaultDescricao,
+  titulo = "Novo Agendamento de Contato",
   buttonVariant = "default",
   buttonSize = "sm",
   buttonText = "Novo Agendamento",
+  buttonIcon,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   hideTrigger = false,
+  onCriado,
 }: NovoAgendamentoDialogProps) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -57,18 +75,20 @@ export function NovoAgendamentoDialog({
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
 
   // Estado do campo cliente (combobox de busca)
-  const [cadastroId, setCadastroId] = useState("");
-  const [buscaCliente, setBuscaCliente] = useState("");
+  const [cadastroId, setCadastroId] = useState(defaultCadastroId ?? "");
+  const [buscaCliente, setBuscaCliente] = useState(
+    () => cadastros.find((c) => c.id === defaultCadastroId)?.nome ?? ""
+  );
   const [listaClienteAberta, setListaClienteAberta] = useState(false);
   const containerClienteRef = useRef<HTMLDivElement>(null);
 
   // Demais campos
-  const [tipo, setTipo] = useState<TipoInteracao>("VISITA");
-  const [etapa, setEtapa] = useState<EtapaAtendimento>("QUALIFICADO");
+  const [tipo, setTipo] = useState<TipoInteracao>(defaultTipo ?? "VISITA");
+  const [etapa, setEtapa] = useState<EtapaAtendimento>(defaultEtapa ?? "QUALIFICADO");
   const [dataAgendamento, setDataAgendamento] = useState(() => defaultDateKey || "");
   const [horario, setHorario] = useState("");
   const [diaInteiro, setDiaInteiro] = useState(false);
-  const [descricao, setDescricao] = useState("");
+  const [descricao, setDescricao] = useState(defaultDescricao ?? "");
   const [valorEstimado, setValorEstimado] = useState("");
 
   // Fecha lista de clientes ao clicar fora
@@ -103,6 +123,9 @@ export function NovoAgendamentoDialog({
     }
     if (newOpen && defaultDateKey) {
       setDataAgendamento(defaultDateKey);
+    }
+    if (newOpen && defaultTipo) {
+      setTipo(defaultTipo);
     }
   }
 
@@ -148,6 +171,7 @@ export function NovoAgendamentoDialog({
         setDescricao("");
         setValorEstimado("");
         setHorario("");
+        onCriado?.();
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erro ao criar agendamento.");
@@ -161,7 +185,7 @@ export function NovoAgendamentoDialog({
         <DialogTrigger
           render={
             <Button variant={buttonVariant} size={buttonSize} className="gap-1.5 font-bold shadow-sm">
-              <Plus className="h-4 w-4" />
+              {buttonIcon ?? <Plus className="h-4 w-4" />}
               <span>{buttonText}</span>
             </Button>
           }
@@ -172,7 +196,7 @@ export function NovoAgendamentoDialog({
         <DialogHeader className="border-b pb-3 border-muted/30">
           <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
             <Calendar className="h-5 w-5 text-primary" />
-            <span>Novo Agendamento de Contato</span>
+            <span>{titulo}</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
             Agende uma visita, ligação ou retorno comercial diretamente na agenda.
@@ -229,23 +253,27 @@ export function NovoAgendamentoDialog({
 
           {/* Tipo e Etapa */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tipo" className="text-xs font-semibold">Tipo</Label>
-              <Select value={tipo} items={ROTULOS_TIPO_INTERACAO} onValueChange={(v) => setTipo((v as TipoInteracao) ?? "VISITA")}>
-                <SelectTrigger id="tipo" className="w-full text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIPO_INTERACAO.map((t) => (
-                    <SelectItem key={t} value={t} className="text-xs">
-                      {ROTULOS_TIPO_INTERACAO[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <Label className="text-xs font-semibold">O que agendar</Label>
+              <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Tipo do agendamento">
+                {TIPO_INTERACAO.map((t) => (
+                  <Button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={tipo === t}
+                    variant={tipo === t ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setTipo(t)}
+                  >
+                    {ROTULOS_TIPO_INTERACAO[t]}
+                  </Button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="col-span-2 flex flex-col gap-1.5">
               <Label htmlFor="etapa" className="text-xs font-semibold">Etapa Atendimento</Label>
               <Select value={etapa} items={ROTULOS_ETAPA_ATENDIMENTO} onValueChange={(v) => setEtapa((v as EtapaAtendimento) ?? "QUALIFICADO")}>
                 <SelectTrigger id="etapa" className="w-full text-xs">
@@ -295,6 +323,8 @@ export function NovoAgendamentoDialog({
                 <span>Dia inteiro</span>
               </label>
             </div>
+
+            <AtalhosReagendamento onEscolher={setDataAgendamento} />
           </div>
 
           {/* Descrição */}

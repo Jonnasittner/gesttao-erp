@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase-admin";
 import { proximoNumero } from "@/lib/contador";
 import { formatarCodigo } from "@/lib/codigo";
 import { converterEmPedido } from "@/server/pedidos";
+import { atualizarCobrancaAsaas, cancelarCobrancaAsaas, marcarRecebimentoManualAsaas } from "@/lib/asaas";
 import {
   type Lancamento,
   type LancamentoInput,
@@ -51,6 +52,7 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
     dataPagamento: data.dataPagamento ?? "",
     banco: data.banco ?? "",
     descricao: data.descricao ?? "",
+    asaas: data.asaas ?? null,
     usuarioNome: data.usuarioNome ?? null,
     createdAt: data.createdAt?.toDate?.().toISOString() ?? "",
     updatedAt: data.updatedAt?.toDate?.().toISOString() ?? "",
@@ -239,6 +241,10 @@ export async function atualizarLancamento(id: string, input: LancamentoInput) {
     throw new Error("Não é possível remover uma parcela que já foi recebida/paga.");
   }
 
+  // Cobranças do Asaas das parcelas que saíram são canceladas antes de apagar,
+  // para o cliente não pagar uma parcela que não existe mais.
+  for (const doc of removidas) await cancelarCobrancaAsaas(doc.id);
+
   const agora = new Date();
   const lote = db.batch();
   for (const parcela of parcelas) {
@@ -258,6 +264,11 @@ export async function atualizarLancamento(id: string, input: LancamentoInput) {
   }
   for (const doc of removidas) lote.delete(doc.ref);
   await lote.commit();
+
+  // Valor/vencimento editados vão também para a cobrança em aberto no Asaas.
+  for (const parcela of parcelas) {
+    if (parcela.id) await atualizarCobrancaAsaas(parcela.id);
+  }
 
   revalidatePath("/financeiro");
 }
@@ -281,6 +292,7 @@ export async function alterarStatusLancamento(id: string, dataPagamento: string 
       banco: dataPagamento ? banco.trim().toUpperCase() : "",
       updatedAt: new Date(),
     });
+  await marcarRecebimentoManualAsaas(id, dataPagamento);
 
   revalidatePath("/financeiro");
 }
@@ -293,6 +305,10 @@ export async function excluirLancamento(id: string) {
   if (!doc.exists) return;
 
   const parcelas = await buscarParcelasDoDocumento(doc.data()!.numeroDocumento);
+  // Cancela no Asaas as cobranças ainda em aberto (as já pagas ficam lá como histórico).
+  for (const parcela of parcelas) {
+    if (parcela.data().status !== "PAGO") await cancelarCobrancaAsaas(parcela.id);
+  }
   const lote = db.batch();
   for (const parcela of parcelas) lote.delete(parcela.ref);
   await lote.commit();

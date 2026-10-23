@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/firebase-admin";
+import { sincronizarInteracaoComGoogle } from "@/lib/google-calendar";
 import {
   type Atendimento,
   type EtapaAtendimento,
@@ -122,6 +123,7 @@ export async function criarInteracao(input: InteracaoInput) {
     usuarioNome: session.user.name ?? null,
     createdAt: new Date(),
   });
+  if (parsed.dataReagendamento) await sincronizarInteracaoComGoogle(ref.id);
 
   revalidatePath(`/cadastros/${parsed.cadastroId}`);
   revalidatePath("/crm");
@@ -141,6 +143,7 @@ export async function atualizarInteracao(id: string, input: InteracaoInput) {
     valorEstimado: parsed.valorEstimado,
     etapa: parsed.etapa,
   });
+  await sincronizarInteracaoComGoogle(id);
 
   revalidatePath(`/cadastros/${parsed.cadastroId}`);
   revalidatePath("/crm");
@@ -155,6 +158,7 @@ export async function reagendarInteracao(id: string, cadastroId: string, dataRea
     .collection("interacoes")
     .doc(id)
     .update({ dataReagendamento: dataReagendamento || null });
+  await sincronizarInteracaoComGoogle(id);
 
   revalidatePath(`/cadastros/${cadastroId}`);
   revalidatePath("/crm");
@@ -166,6 +170,7 @@ export async function atualizarEtapaInteracao(id: string, etapa: EtapaAtendiment
   if (!session?.user) throw new Error("Não autenticado");
 
   await db.collection("interacoes").doc(id).update({ etapa });
+  await sincronizarInteracaoComGoogle(id);
   revalidatePath("/crm");
   revalidatePath("/agendamentos");
 }

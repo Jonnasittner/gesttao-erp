@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { LancamentoAcoes } from "@/components/financeiro/lancamento-acoes";
 import { SituacaoBadge } from "@/components/financeiro/situacao-badge";
 import { CustoSugeridoBotao } from "@/components/pedidos/custo-sugerido-botao";
+import { BoletosParcelas } from "@/components/financeiro/boletos-parcelas";
 import {
   ID_LISTA_BANCOS,
   calcularMargemPedido,
@@ -33,6 +34,13 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco, custoCal
   const voltarPara = `/pedidos/${pedido.id}`;
   const recebimentos = lancamentos.filter((l) => l.tipo === "RECEBER");
   const custos = lancamentos.filter((l) => l.tipo === "PAGAR");
+  // Recebimentos parcelados, agrupados por documento, para o "Gerar boletos".
+  // (sem Map.groupBy: o Node do Netlify pode ser anterior ao 21).
+  const porDocumento = new Map<number, Lancamento[]>();
+  for (const l of recebimentos) {
+    if (l.totalParcelas > 1) porDocumento.set(l.numeroDocumento, [...(porDocumento.get(l.numeroDocumento) ?? []), l]);
+  }
+  const parcelados = [...porDocumento.values()];
   const margem = calcularMargemPedido(pedido.total, lancamentos);
   const isPedido = pedido.status === "PEDIDO";
 
@@ -127,6 +135,10 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco, custoCal
         icone={<ArrowDownCircle className="size-4 text-emerald-600" />}
         titulo="Recebimentos do cliente"
         acoes={
+          <div className="flex flex-wrap gap-2">
+          {parcelados.map((parcelas) => (
+            <BoletosParcelas key={parcelas[0].numeroDocumento} parcelas={parcelas} />
+          ))}
           <Button
             variant="outline"
             size="sm"
@@ -137,6 +149,7 @@ export function FinanceiroPedido({ pedido, lancamentos, sugestoesBanco, custoCal
               </Link>
             }
           />
+          </div>
         }
         vazio="Nenhum recebimento lançado para este pedido."
         itens={recebimentos}

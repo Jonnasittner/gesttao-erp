@@ -286,6 +286,27 @@ export const lancamentoSchema = z
   });
 export type LancamentoInput = z.infer<typeof lancamentoSchema>;
 
+export type AmbienteAsaas = "sandbox" | "producao";
+
+/** BOLETO e PIX geram só aquela forma; UNDEFINED = link onde o cliente escolhe. */
+export const TIPOS_COBRANCA_ASAAS = ["PIX", "BOLETO", "UNDEFINED"] as const;
+export type TipoCobrancaAsaas = (typeof TIPOS_COBRANCA_ASAAS)[number];
+
+/** Cobrança do Asaas gravada na parcela a receber (ver src/lib/asaas.ts). */
+export interface CobrancaAsaas {
+  id: string;
+  ambiente: AmbienteAsaas;
+  tipo: TipoCobrancaAsaas;
+  /** Status do Asaas: PENDING, RECEIVED, CONFIRMED, OVERDUE, REFUNDED... */
+  status: string;
+  /** Página de pagamento do Asaas (serve para Pix, boleto e cartão). */
+  linkPagamento: string;
+  /** PDF do boleto (só quando o boleto é possível). */
+  linkBoleto: string;
+  vencimento: string;
+  valor: number;
+}
+
 /** Um documento de "lancamentos" = uma parcela. */
 export interface Lancamento {
   id: string;
@@ -317,6 +338,8 @@ export interface Lancamento {
   /** Banco onde foi recebido/pago. */
   banco: string;
   descricao: string;
+  /** Cobrança gerada no Asaas para esta parcela (só a receber). */
+  asaas: CobrancaAsaas | null;
   usuarioNome: string | null;
   createdAt: string;
   updatedAt: string;
