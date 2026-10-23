@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { comResultado } from "@/lib/resultado";
 import {
   buscarConexaoGoogle,
   conexaoRef,
@@ -32,10 +33,12 @@ export async function buscarStatusGoogleCalendar(): Promise<StatusGoogleCalendar
 }
 
 /** Eventos do Google Calendar no período, para a tela de Agenda. */
-export async function buscarEventosGoogle(timeMin: string, timeMax: string): Promise<EventoGoogle[]> {
-  const session = await auth();
-  if (!session?.user) throw new Error("Não autenticado");
-  return listarEventosGoogle(timeMin, timeMax);
+export async function buscarEventosGoogle(timeMin: string, timeMax: string) {
+  return comResultado<EventoGoogle[]>(async () => {
+    const session = await auth();
+    if (!session?.user) throw new Error("Não autenticado");
+    return listarEventosGoogle(timeMin, timeMax);
+  });
 }
 
 export async function desconectarGoogleCalendar() {

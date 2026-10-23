@@ -10,6 +10,7 @@ import { NovoAgendamentoDialog } from "@/components/agendamentos/novo-agendament
 import { buscarEventosGoogle } from "@/server/google-calendar";
 import type { EventoGoogle } from "@/lib/google-calendar";
 import { hojeISO } from "@/lib/datetime";
+import { desembrulhar } from "@/lib/resultado";
 import { cn } from "@/lib/utils";
 import { type Cadastro } from "@/lib/types";
 
@@ -220,7 +221,7 @@ export function AgendamentosClient({ cadastros, emailGoogle }: AgendamentosClien
     const timeMax = new Date(`${grade[grade.length - 1].chave}T23:59:59-03:00`).toISOString();
     startTransition(async () => {
       try {
-        setEventos(await buscarEventosGoogle(timeMin, timeMax));
+        setEventos(desembrulhar(await buscarEventosGoogle(timeMin, timeMax)));
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erro ao carregar a agenda do Google.");
       }

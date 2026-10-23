@@ -26,6 +26,7 @@ import {
 import { detalharCobrancaAsaas, excluirCobrancaAsaas, gerarCobrancaAsaas } from "@/server/asaas";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO } from "@/lib/datetime";
+import { desembrulhar } from "@/lib/resultado";
 import type { CobrancaAsaas, Lancamento, TipoCobrancaAsaas } from "@/lib/types";
 
 const ROTULOS_STATUS: Record<string, string> = {
@@ -88,7 +89,7 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
   function carregar() {
     startTransition(async () => {
       try {
-        setDetalhes(await detalharCobrancaAsaas(lancamento.id));
+        setDetalhes(desembrulhar(await detalharCobrancaAsaas(lancamento.id)));
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erro ao consultar o Asaas.");
@@ -105,9 +106,9 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
   function gerar(tipo: TipoCobrancaAsaas) {
     startTransition(async () => {
       try {
-        await gerarCobrancaAsaas(lancamento.id, tipo);
+        desembrulhar(await gerarCobrancaAsaas(lancamento.id, tipo));
         toast.success("Cobrança gerada no Asaas.");
-        setDetalhes(await detalharCobrancaAsaas(lancamento.id));
+        setDetalhes(desembrulhar(await detalharCobrancaAsaas(lancamento.id)));
         router.refresh();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erro ao gerar a cobrança.");
@@ -119,7 +120,7 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
     if (!confirm("Cancelar esta cobrança no Asaas? O link, o Pix e o boleto deixam de valer.")) return;
     startTransition(async () => {
       try {
-        await excluirCobrancaAsaas(lancamento.id);
+        desembrulhar(await excluirCobrancaAsaas(lancamento.id));
         toast.success("Cobrança cancelada.");
         setDetalhes(null);
         setAberto(false);

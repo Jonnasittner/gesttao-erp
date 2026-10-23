@@ -16,6 +16,7 @@ import { gerarCobrancasDoDocumento } from "@/server/asaas";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO } from "@/lib/datetime";
 import { rotuloDocumento } from "@/lib/financeiro";
+import { desembrulhar } from "@/lib/resultado";
 import type { Lancamento } from "@/lib/types";
 
 /**
@@ -37,7 +38,7 @@ export function BoletosParcelas({ parcelas }: { parcelas: Lancamento[] }) {
     if (!confirm(aviso)) return;
     startTransition(async () => {
       try {
-        const gerados = await gerarCobrancasDoDocumento(numeroDocumento, "BOLETO");
+        const gerados = desembrulhar(await gerarCobrancasDoDocumento(numeroDocumento, "BOLETO"));
         toast.success(`${gerados} ${gerados === 1 ? "boleto gerado" : "boletos gerados"} no Asaas.`);
         setAberto(true);
       } catch (err) {

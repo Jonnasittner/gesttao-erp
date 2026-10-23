@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { comResultado } from "@/lib/resultado";
 import { db } from "@/lib/firebase-admin";
 import {
   buscarDadosPagamentoAsaas,
@@ -33,42 +34,50 @@ export async function statusAsaas() {
 }
 
 export async function gerarCobrancaAsaas(lancamentoId: string, tipo: TipoCobrancaAsaas) {
-  await exigirSessao();
-  if (!TIPOS_COBRANCA_ASAAS.includes(tipo)) throw new Error("Forma de cobrança inválida.");
-  const cobranca = await criarCobrancaAsaas(lancamentoId, tipo);
-  await revalidarLancamento(lancamentoId);
-  return cobranca;
+  return comResultado(async () => {
+    await exigirSessao();
+    if (!TIPOS_COBRANCA_ASAAS.includes(tipo)) throw new Error("Forma de cobrança inválida.");
+    const cobranca = await criarCobrancaAsaas(lancamentoId, tipo);
+    await revalidarLancamento(lancamentoId);
+    return cobranca;
+  });
 }
 
 /** Atualiza o status no Asaas e devolve o Pix/boleto para mostrar no balão. */
 export async function detalharCobrancaAsaas(lancamentoId: string) {
-  await exigirSessao();
-  await sincronizarCobrancaAsaas(lancamentoId);
-  const cobranca = (await db.collection("lancamentos").doc(lancamentoId).get()).data()?.asaas as
-    | CobrancaAsaas
-    | null;
-  if (!cobranca) throw new Error("Esta parcela não tem cobrança no Asaas.");
+  return comResultado(async () => {
+    await exigirSessao();
+    await sincronizarCobrancaAsaas(lancamentoId);
+    const cobranca = (await db.collection("lancamentos").doc(lancamentoId).get()).data()?.asaas as
+      | CobrancaAsaas
+      | null;
+    if (!cobranca) throw new Error("Esta parcela não tem cobrança no Asaas.");
 
-  const dados = await buscarDadosPagamentoAsaas(cobranca);
-  await revalidarLancamento(lancamentoId);
-  return { cobranca, ...dados };
+    const dados = await buscarDadosPagamentoAsaas(cobranca);
+    await revalidarLancamento(lancamentoId);
+    return { cobranca, ...dados };
+  });
 }
 
 export async function excluirCobrancaAsaas(lancamentoId: string) {
-  await exigirSessao();
-  await cancelarCobrancaAsaas(lancamentoId);
-  await revalidarLancamento(lancamentoId);
+  return comResultado(async () => {
+    await exigirSessao();
+    await cancelarCobrancaAsaas(lancamentoId);
+    await revalidarLancamento(lancamentoId);
+  });
 }
 
 /** Gera os boletos (ou Pix/link) de todas as parcelas pendentes do documento. */
 export async function gerarCobrancasDoDocumento(numeroDocumento: number, tipo: TipoCobrancaAsaas) {
-  await exigirSessao();
-  if (!TIPOS_COBRANCA_ASAAS.includes(tipo)) throw new Error("Forma de cobrança inválida.");
-  try {
-    return await criarCobrancasDoDocumento(numeroDocumento, tipo);
-  } finally {
-    // Mesmo se uma parcela falhar no meio, as já geradas aparecem na tela.
-    revalidatePath("/financeiro");
-    revalidatePath("/pedidos", "layout");
-  }
+  return comResultado(async () => {
+    await exigirSessao();
+    if (!TIPOS_COBRANCA_ASAAS.includes(tipo)) throw new Error("Forma de cobrança inválida.");
+    try {
+      return await criarCobrancasDoDocumento(numeroDocumento, tipo);
+    } finally {
+      // Mesmo se uma parcela falhar no meio, as já geradas aparecem na tela.
+      revalidatePath("/financeiro");
+      revalidatePath("/pedidos", "layout");
+    }
+  });
 }
