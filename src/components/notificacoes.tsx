@@ -8,6 +8,7 @@ import { listarNotificacoes, marcarNotificacoesLidas } from "@/server/notificaco
 import type { Notificacao } from "@/lib/notificacoes";
 import { formatarDataHoraSegundos } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
+import { ehErroDeVersaoAntiga, recarregarUmaVez } from "@/lib/versao-antiga";
 
 // Confere a cada 30 s se chegou algo novo (ex.: boleto pago avisado pelo Asaas).
 const INTERVALO_MS = 30_000;
@@ -17,7 +18,11 @@ export function Notificacoes() {
   const [aberto, setAberto] = useState(false);
 
   const carregar = useCallback(async () => {
-    const resultado = await listarNotificacoes().catch(() => null);
+    const resultado = await listarNotificacoes().catch((err) => {
+      // Aba aberta durante um deploy: recarrega para pegar a versão nova.
+      if (ehErroDeVersaoAntiga(err)) recarregarUmaVez();
+      return null;
+    });
     if (resultado?.ok) setLista(resultado.dados);
   }, []);
 

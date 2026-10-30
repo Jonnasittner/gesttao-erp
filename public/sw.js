@@ -1,8 +1,12 @@
 // Service worker mínimo: só existe para o navegador considerar o app
-// "instalável" (adicionar à tela inicial) no Android/Chrome. Estratégia
-// network-first — sempre tenta a rede primeiro (o app é dinâmico, com
-// login e dados ao vivo) e só usa o cache como fallback quando offline.
-const CACHE = "gesttao-v1";
+// "instalável" (adicionar à tela inicial) no Android/Chrome.
+//
+// Não intercepta páginas, dados do Next (RSC) nem chamadas ao servidor: servir
+// cópia antiga disso depois de um deploy deixava a tela presa numa versão
+// velha ("Server Action ... was not found on the server"). Só os ícones e os
+// arquivos estáticos com hash (/_next/static, que nunca mudam) passam por
+// aqui, rede primeiro e cache só quando offline.
+const CACHE = "gesttao-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -17,16 +21,27 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function podeUsarCache(request) {
+  if (request.method !== "GET") return false;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return false;
+  return url.pathname.startsWith("/_next/static/") || /\.(png|svg|ico|webmanifest)$/.test(url.pathname);
+}
+
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  // Sem respondWith: o navegador busca normalmente, sem passar pelo cache.
+  if (!podeUsarCache(event.request)) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copia = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(event.request, copia)).catch(() => {});
+        if (response.ok) {
+          const copia = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copia)).catch(() => {});
+        }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      // Offline sem cópia: devolve um erro de rede de verdade (undefined quebra a página).
+      .catch(() => caches.match(event.request).then((salva) => salva || Response.error()))
   );
 });
