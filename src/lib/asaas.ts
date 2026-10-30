@@ -379,16 +379,26 @@ export async function conferirCobrancasEmAberto(): Promise<number> {
   });
   if (!podeRodar) return 0;
 
-  const snap = await db.collection("lancamentos").where("status", "==", "PENDENTE").get();
-  const abertas = snap.docs.filter((d) => {
-    const asaas = d.data().asaas as CobrancaAsaas | null | undefined;
-    return d.data().tipo === "RECEBER" && asaas?.id && asaas.ambiente === config.ambiente;
-  });
+  // Duas listagens no Asaas em vez de uma consulta por cobrança: precisa caber
+  // no tempo de uma chamada da tela (no Netlify, uns 10 s). Recebidas nos
+  // últimos dias + confirmadas (cartão, ainda não creditadas).
+  const desde = new Date(`${hojeISO()}T00:00:00Z`);
+  desde.setUTCDate(desde.getUTCDate() - DIAS_CONFERENCIA);
+  const [recebidas, confirmadas, snap] = await Promise.all([
+    listarTudoAsaas<PagamentoAsaas>(`/payments?status=RECEIVED&${encodeURIComponent("paymentDate[ge]")}=${desde.toISOString().slice(0, 10)}`),
+    listarTudoAsaas<PagamentoAsaas>("/payments?status=CONFIRMED"),
+    db.collection("lancamentos").where("status", "==", "PENDENTE").get(),
+  ]);
+  const pagas = new Map([...recebidas, ...confirmadas].map((p) => [p.id, p]));
 
   let baixas = 0;
-  for (const doc of abertas) {
-    // Uma cobrança com erro (ex.: apagada no Asaas) não impede as outras.
-    const pago = await sincronizarCobrancaAsaas(doc.id).catch((err) => {
+  for (const doc of snap.docs) {
+    const asaas = doc.data().asaas as CobrancaAsaas | null | undefined;
+    if (doc.data().tipo !== "RECEBER" || !asaas?.id || asaas.ambiente !== config.ambiente) continue;
+    const pagamento = pagas.get(asaas.id);
+    if (!pagamento) continue;
+    // Uma cobrança com erro não impede as outras.
+    const pago = await sincronizarCobrancaAsaas(doc.id, pagamento).catch((err) => {
       console.error("[asaas] falha ao conferir cobrança", doc.id, err);
       return false;
     });
@@ -396,6 +406,9 @@ export async function conferirCobrancasEmAberto(): Promise<number> {
   }
   return baixas;
 }
+
+/** Quantos dias para trás a conferência olha os pagamentos recebidos. */
+const DIAS_CONFERENCIA = 10;
 
 /**
  * Tira a cobrança da parcela sem mexer no Asaas (o boleto continua valendo
