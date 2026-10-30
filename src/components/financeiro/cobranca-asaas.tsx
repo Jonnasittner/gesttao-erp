@@ -7,6 +7,7 @@ import {
   BarcodeIcon,
   CheckIcon,
   CopyIcon,
+  CreditCardIcon,
   ExternalLinkIcon,
   LinkIcon,
   Loader2Icon,
@@ -29,6 +30,7 @@ import {
   desvincularCobrancaDoAsaas,
   detalharCobrancaAsaas,
   excluirCobrancaAsaas,
+  gerarCartaoParcelado,
   gerarCobrancaAsaas,
 } from "@/server/asaas";
 import { formatarMoeda } from "@/lib/moeda";
@@ -142,6 +144,21 @@ export function CobrancaAsaasBotao({
     });
   }
 
+  function gerarCartao() {
+    const aviso = `Gerar uma cobrança no cartão de crédito em ${lancamento.totalParcelas}x de ${formatarMoeda(lancamento.valorTotal)}? Todas as parcelas deste lançamento ficam num link só.`;
+    if (!confirm(aviso)) return;
+    startTransition(async () => {
+      try {
+        desembrulhar(await gerarCartaoParcelado(lancamento.id));
+        toast.success(`Cartão em ${lancamento.totalParcelas}x gerado no Asaas.`);
+        setDetalhes(desembrulhar(await detalharCobrancaAsaas(lancamento.id)));
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao gerar o cartão parcelado.");
+      }
+    });
+  }
+
   function desvincular() {
     if (!confirm("Desvincular esta cobrança da parcela? Ela continua valendo no Asaas; só deixa de estar ligada aqui.")) {
       return;
@@ -160,7 +177,10 @@ export function CobrancaAsaasBotao({
   }
 
   function cancelar() {
-    if (!confirm("Cancelar esta cobrança no Asaas? O link, o Pix e o boleto deixam de valer.")) return;
+    const aviso = cobranca?.parcelamentoId
+      ? `Cancelar o cartão parcelado inteiro no Asaas? As ${lancamento.totalParcelas} parcelas deixam de valer e voltam para "Cobrar".`
+      : "Cancelar esta cobrança no Asaas? O link, o Pix e o boleto deixam de valer.";
+    if (!confirm(aviso)) return;
     startTransition(async () => {
       try {
         desembrulhar(await excluirCobrancaAsaas(lancamento.id));
@@ -174,9 +194,11 @@ export function CobrancaAsaasBotao({
     });
   }
 
-  const textoWhatsApp = cobranca
-    ? `Olá! Segue o link para pagamento de ${formatarMoeda(cobranca.valor)} (vencimento ${formatarDataISO(cobranca.vencimento)}): ${cobranca.linkPagamento}`
-    : "";
+  const textoWhatsApp = !cobranca
+    ? ""
+    : cobranca.parcelamentoId
+      ? `Olá! Segue o link para pagamento de ${formatarMoeda(lancamento.valorTotal)} em ${lancamento.totalParcelas}x no cartão de crédito: ${cobranca.linkPagamento}`
+      : `Olá! Segue o link para pagamento de ${formatarMoeda(cobranca.valor)} (vencimento ${formatarDataISO(cobranca.vencimento)}): ${cobranca.linkPagamento}`;
 
   // Baixa à mão (dinheiro, transferência...): só enquanto a parcela não foi recebida.
   const botaoRecebido = onMarcarRecebido && lancamento.status !== "PAGO" && (
@@ -244,6 +266,24 @@ export function CobrancaAsaasBotao({
                   </span>
                 </button>
               ))}
+              {lancamento.totalParcelas > 1 && (
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={gerarCartao}
+                  className="flex items-center gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
+                >
+                  <span className="text-primary">
+                    <CreditCardIcon className="size-5" />
+                  </span>
+                  <span className="flex flex-col">
+                    <span className="text-sm font-medium">Cartão de crédito em {lancamento.totalParcelas}x</span>
+                    <span className="text-xs text-muted-foreground">
+                      Um link só para as {lancamento.totalParcelas} parcelas ({formatarMoeda(lancamento.valorTotal)})
+                    </span>
+                  </span>
+                </button>
+              )}
               {isPending && (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2Icon className="size-3.5 animate-spin" /> Gerando no Asaas...
@@ -255,7 +295,14 @@ export function CobrancaAsaasBotao({
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex flex-col gap-1">
-                  <Badge variant="secondary">{ROTULOS_STATUS[cobranca.status] ?? cobranca.status}</Badge>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="secondary">{ROTULOS_STATUS[cobranca.status] ?? cobranca.status}</Badge>
+                    {cobranca.parcelamentoId && (
+                      <Badge variant="outline" className="gap-1">
+                        <CreditCardIcon className="size-3" /> Cartão em {lancamento.totalParcelas}x
+                      </Badge>
+                    )}
+                  </span>
                   {/* Dados do próprio boleto no Asaas: ajuda a ver se o vínculo está certo. */}
                   <span
                     className={`text-xs ${cobranca.vencimento !== lancamento.vencimento ? "font-semibold text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}
@@ -328,17 +375,20 @@ export function CobrancaAsaasBotao({
                   <Trash2Icon /> Cancelar cobrança
                 </Button>
               )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={desvincular}
-                disabled={isPending}
-                className="self-start text-muted-foreground"
-                title="Tira o vínculo com esta parcela sem apagar nada no Asaas"
-              >
-                <UnlinkIcon /> Desvincular (mantém no Asaas)
-              </Button>
+              {/* No cartão parcelado as parcelas andam juntas: só "Cancelar" (o parcelamento inteiro). */}
+              {!cobranca.parcelamentoId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={desvincular}
+                  disabled={isPending}
+                  className="self-start text-muted-foreground"
+                  title="Tira o vínculo com esta parcela sem apagar nada no Asaas"
+                >
+                  <UnlinkIcon /> Desvincular (mantém no Asaas)
+                </Button>
+              )}
               {botaoRecebido}
             </div>
           )}

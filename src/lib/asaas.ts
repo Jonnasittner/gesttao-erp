@@ -109,12 +109,15 @@ export interface PagamentoAsaas {
   clientPaymentDate?: string | null;
   confirmedDate?: string | null;
   deleted?: boolean;
+  /** Parcelamento (inst_...) a que a cobrança pertence, se for parcelada. */
+  installment?: string | null;
+  installmentNumber?: number | null;
 }
 
 /** Status do Asaas que significam dinheiro recebido. */
 const STATUS_PAGO = ["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
 
-function paraCobranca(p: PagamentoAsaas, tipo: TipoCobrancaAsaas, ambiente: AmbienteAsaas): CobrancaAsaas {
+function paraCobranca(p: PagamentoAsaas, tipo: CobrancaAsaas["tipo"], ambiente: AmbienteAsaas): CobrancaAsaas {
   return {
     id: p.id,
     ambiente,
@@ -124,6 +127,8 @@ function paraCobranca(p: PagamentoAsaas, tipo: TipoCobrancaAsaas, ambiente: Ambi
     linkBoleto: p.bankSlipUrl ?? "",
     vencimento: p.dueDate,
     valor: p.value,
+    // Firestore não aceita undefined: o campo só existe nas parceladas.
+    ...(p.installment ? { parcelamentoId: p.installment } : {}),
   };
 }
 
@@ -172,8 +177,10 @@ export async function buscarDadosPagamentoAsaas(cobranca: CobrancaAsaas) {
   // Erros aqui não derrubam o balão: o link de pagamento continua valendo.
   // O do Pix é guardado para a tela explicar (ex.: conta sem chave Pix).
   let pixErro = "";
+  // Cartão parcelado não tem Pix nem boleto: só o link de pagamento.
+  const cartao = cobranca.tipo === "CREDIT_CARD";
   const [pix, boleto] = await Promise.all([
-    cobranca.tipo !== "BOLETO"
+    !cartao && cobranca.tipo !== "BOLETO"
       ? asaasFetch<{ encodedImage: string; payload: string }>(`/payments/${cobranca.id}/pixQrCode`).catch(
           (err: Error) => {
             pixErro = err.message;
@@ -181,7 +188,7 @@ export async function buscarDadosPagamentoAsaas(cobranca: CobrancaAsaas) {
           }
         )
       : null,
-    cobranca.tipo !== "PIX"
+    !cartao && cobranca.tipo !== "PIX"
       ? asaasFetch<{ identificationField: string }>(`/payments/${cobranca.id}/identificationField`).catch(() => null)
       : null,
   ]);
@@ -208,7 +215,12 @@ export async function sincronizarCobrancaAsaas(lancamentoId: string, pagamento?:
   if (!atual?.id) return;
 
   const p = pagamento ?? (await asaasFetch<PagamentoAsaas>(`/payments/${atual.id}`));
-  const cobranca = { ...paraCobranca(p, atual.tipo, atual.ambiente), linkBoleto: p.bankSlipUrl ?? atual.linkBoleto };
+  const cobranca = {
+    ...paraCobranca(p, atual.tipo, atual.ambiente),
+    linkBoleto: p.bankSlipUrl ?? atual.linkBoleto,
+    // Cartão parcelado: todas as parcelas guardam o link da 1ª, onde o cliente paga as N vezes.
+    ...(atual.parcelamentoId ? { linkPagamento: atual.linkPagamento } : {}),
+  };
   const campos: Record<string, unknown> = { asaas: cobranca, updatedAt: new Date() };
 
   if (STATUS_PAGO.includes(p.status) && l.status !== "PAGO") {
@@ -223,12 +235,16 @@ export async function sincronizarCobrancaAsaas(lancamentoId: string, pagamento?:
   // Pago pelo cliente no Asaas (não a baixa à mão, que vira RECEIVED_IN_CASH): avisa a equipe.
   if (campos.status === "PAGO" && p.status !== "RECEIVED_IN_CASH") {
     const forma = { BOLETO: "Boleto", PIX: "Pix", CREDIT_CARD: "Cartão" }[p.billingType] ?? "Cobrança";
+    const moeda = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const parcela = (l.totalParcelas ?? 1) > 1 ? ` (parcela ${l.parcela}/${l.totalParcelas})` : "";
-    const valor = p.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    // Cartão parcelado: o Asaas confirma todas as parcelas juntas; uma notificação só.
+    const mensagem = p.installment
+      ? `${l.clienteNome || "Cliente"} pagou ${moeda(l.valorTotal ?? p.value)} no cartão em ${l.totalParcelas}x.`
+      : `${l.clienteNome || "Cliente"} pagou ${moeda(p.value)}${parcela}.`;
     await criarNotificacao({
-      chave: `asaas-pago-${p.id}`,
+      chave: `asaas-pago-${p.installment ?? p.id}`,
       titulo: `${forma} pago`,
-      mensagem: `${l.clienteNome || "Cliente"} pagou ${valor}${parcela}.`,
+      mensagem,
       link: "/financeiro?tipo=RECEBER&status=pagos",
     }).catch((err) => console.error("[notificacoes] falha ao notificar pagamento", p.id, err));
   }
@@ -245,13 +261,99 @@ export async function cancelarCobrancaAsaas(lancamentoId: string) {
   }
 
   const config = configAsaas();
+  const ignorarSumida = (err: Error) => {
+    if (!/não encontrad|not found/i.test(err.message)) throw err;
+  };
+
+  // Cartão parcelado: cancela o parcelamento inteiro e solta todas as parcelas.
+  if (cobranca.parcelamentoId) {
+    const irmas = await db.collection("lancamentos").where("asaas.parcelamentoId", "==", cobranca.parcelamentoId).get();
+    if (irmas.docs.some((d) => STATUS_PAGO.includes(d.data().asaas?.status))) {
+      throw new Error("Este parcelamento já tem parcela paga no Asaas e não pode ser cancelado.");
+    }
+    if (config && config.ambiente === cobranca.ambiente) {
+      await asaasFetch(`/installments/${cobranca.parcelamentoId}`, { method: "DELETE" }).catch(ignorarSumida);
+    }
+    const lote = db.batch();
+    for (const d of irmas.docs) lote.update(d.ref, { asaas: null, updatedAt: new Date() });
+    await lote.commit();
+    return;
+  }
+
   // Cobrança de outro ambiente (ex.: sandbox depois de trocar para produção): só desvincula.
   if (config && config.ambiente === cobranca.ambiente) {
-    await asaasFetch(`/payments/${cobranca.id}`, { method: "DELETE" }).catch((err: Error) => {
-      if (!/não encontrad|not found/i.test(err.message)) throw err;
-    });
+    await asaasFetch(`/payments/${cobranca.id}`, { method: "DELETE" }).catch(ignorarSumida);
   }
   if (doc.exists) await lancamentoRef(lancamentoId).update({ asaas: null, updatedAt: new Date() });
+}
+
+/**
+ * Cartão de crédito parcelado: uma cobrança no Asaas com todas as parcelas do
+ * documento da parcela `lancamentoId`. O cliente abre um link só e paga as N
+ * vezes no cartão; cada parcela do sistema fica ligada à parcela de mesmo
+ * número no Asaas (com o valor e o vencimento de lá). Devolve o link.
+ */
+export async function criarCobrancaCartaoParcelada(lancamentoId: string): Promise<string> {
+  const { ambiente } = exigirConfig();
+  const doc = await lancamentoRef(lancamentoId).get();
+  if (!doc.exists) throw new Error("Lançamento não encontrado.");
+  const base = doc.data()!;
+  if (base.tipo !== "RECEBER") throw new Error("Só lançamentos a receber podem virar cobrança.");
+  if (!base.clienteId) throw new Error("Lançamento sem cliente.");
+
+  const snap = await db.collection("lancamentos").where("numeroDocumento", "==", base.numeroDocumento).get();
+  const parcelas = snap.docs
+    .filter((d) => d.data().tipo === "RECEBER")
+    .sort((a, b) => (a.data().parcela ?? 1) - (b.data().parcela ?? 1));
+  if (parcelas.length < 2) throw new Error("O documento tem uma parcela só: use o link de pagamento comum.");
+  if (parcelas.some((d) => d.data().status === "PAGO")) {
+    throw new Error("Já há parcela recebida neste documento: o cartão parcelado precisa de todas em aberto.");
+  }
+  if (parcelas.some((d) => d.data().asaas?.id && d.data().asaas.ambiente === ambiente)) {
+    throw new Error("Já há cobrança gerada em alguma parcela. Cancele as cobranças antes de gerar o cartão parcelado.");
+  }
+
+  const clienteAsaas = await garantirClienteAsaas(base.clienteId);
+  const total = Math.round(parcelas.reduce((soma, d) => soma + (d.data().valor ?? 0), 0) * 100) / 100;
+  const hoje = hojeISO();
+  const primeiroVencimento = parcelas[0].data().vencimento;
+  const referencia = base.pedidoNumero ? `Pedido #${formatarCodigo(base.pedidoNumero)}` : `Documento ${base.numeroDocumento}`;
+
+  const primeira = await asaasFetch<PagamentoAsaas>("/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      customer: clienteAsaas,
+      billingType: "CREDIT_CARD",
+      installmentCount: parcelas.length,
+      totalValue: total,
+      dueDate: primeiroVencimento && primeiroVencimento > hoje ? primeiroVencimento : hoje,
+      description: `${referencia} - cartão em ${parcelas.length}x`,
+    }),
+  });
+  if (!primeira.installment) throw new Error("O Asaas não devolveu o parcelamento. Confira a cobrança no painel do Asaas.");
+
+  const doAsaas = (await listarTudoAsaas<PagamentoAsaas>(`/payments?installment=${primeira.installment}`)).sort(
+    (a, b) => (a.installmentNumber ?? 0) - (b.installmentNumber ?? 0) || a.dueDate.localeCompare(b.dueDate)
+  );
+
+  const lote = db.batch();
+  parcelas.forEach((d, i) => {
+    const p = doAsaas[i];
+    if (!p) return;
+    lote.update(d.ref, {
+      // Um link só: todas as parcelas apontam para a página da 1ª, onde o cliente paga as N vezes.
+      asaas: { ...paraCobranca(p, "CREDIT_CARD", ambiente), linkPagamento: primeira.invoiceUrl },
+      valor: p.value,
+      vencimento: p.dueDate,
+      updatedAt: new Date(),
+    });
+  });
+  // O Asaas pode dividir os centavos diferente: o total do documento acompanha.
+  const totalAsaas = Math.round(doAsaas.reduce((soma, p) => soma + p.value, 0) * 100) / 100;
+  for (const d of parcelas) lote.update(d.ref, { valorTotal: totalAsaas });
+  await lote.commit();
+
+  return primeira.invoiceUrl;
 }
 
 /** Intervalo mínimo entre duas conferências automáticas das cobranças em aberto. */
@@ -312,6 +414,9 @@ export async function atualizarCobrancaAsaas(lancamentoId: string) {
   const cobranca = l?.asaas as CobrancaAsaas | undefined;
   if (!l || !cobranca?.id || STATUS_PAGO.includes(cobranca.status)) return;
   if (cobranca.valor === l.valor && cobranca.vencimento === l.vencimento) return;
+  // Parcela do cartão parcelado não se edita sozinha no Asaas (o parcelamento
+  // é um só); a edição de valor/vencimento é barrada antes, em atualizarLancamento.
+  if (cobranca.parcelamentoId) return;
 
   const hoje = hojeISO();
   const pagamento = await asaasFetch<PagamentoAsaas>(`/payments/${cobranca.id}`, {
@@ -336,6 +441,8 @@ export async function marcarRecebimentoManualAsaas(lancamentoId: string, dataPag
   const cobranca = l?.asaas as CobrancaAsaas | undefined;
   const config = configAsaas();
   if (!l || !cobranca?.id || !config || config.ambiente !== cobranca.ambiente) return;
+  // Cartão parcelado: o Asaas não aceita "recebida em dinheiro" numa parcela só.
+  if (cobranca.parcelamentoId) return;
 
   if (dataPagamento && !STATUS_PAGO.includes(cobranca.status)) {
     await asaasFetch(`/payments/${cobranca.id}/receiveInCash`, {

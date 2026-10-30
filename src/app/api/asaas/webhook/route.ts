@@ -40,16 +40,18 @@ export async function POST(request: NextRequest) {
   const pagamento = corpo?.payment;
   if (!pagamento?.id) return NextResponse.json({ ok: true });
 
-  // externalReference é o id do lançamento; se não vier, procura pelo id da cobrança.
-  let lancamentoId = pagamento.externalReference ?? null;
-  if (!lancamentoId) {
+  // externalReference é o id do lançamento. Se não vier, ou não apontar para a
+  // parcela desta cobrança (cobranças vinculadas depois, cartão parcelado),
+  // procura pelo id da cobrança.
+  let doc = pagamento.externalReference
+    ? await db.collection("lancamentos").doc(pagamento.externalReference).get()
+    : null;
+  if (!doc?.exists || doc.data()!.asaas?.id !== pagamento.id) {
     const snap = await db.collection("lancamentos").where("asaas.id", "==", pagamento.id).limit(1).get();
-    lancamentoId = snap.docs[0]?.id ?? null;
+    doc = snap.docs[0] ?? null;
   }
-  if (!lancamentoId) return NextResponse.json({ ok: true });
-
-  const doc = await db.collection("lancamentos").doc(lancamentoId).get();
-  if (!doc.exists || doc.data()!.asaas?.id !== pagamento.id) return NextResponse.json({ ok: true });
+  if (!doc?.exists) return NextResponse.json({ ok: true });
+  const lancamentoId = doc.id;
 
   try {
     if (evento === "PAYMENT_DELETED") {

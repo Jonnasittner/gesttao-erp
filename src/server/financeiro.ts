@@ -255,6 +255,24 @@ export async function atualizarLancamento(id: string, input: LancamentoInput) {
     }
   }
 
+  // Cartão parcelado no Asaas: valor e vencimento ficam como estão lá.
+  const noCartao = existentes.filter((d) => d.data().asaas?.parcelamentoId);
+  if (noCartao.length > 0) {
+    const mudou = noCartao.some((d) => {
+      const nova = parcelas.find((p) => p.id === d.id);
+      return (
+        !nova ||
+        Math.round(nova.campos.valor * 100) !== Math.round((d.data().valor ?? 0) * 100) ||
+        nova.campos.vencimento !== d.data().vencimento
+      );
+    });
+    if (mudou || parcelas.length !== existentes.length) {
+      throw new Error(
+        "Este lançamento está no cartão parcelado do Asaas. Cancele a cobrança antes de mudar parcelas, valores ou vencimentos."
+      );
+    }
+  }
+
   const idsMantidos = new Set(parcelas.map((p) => p.id).filter(Boolean));
   const removidas = existentes.filter((d) => !idsMantidos.has(d.id));
   if (removidas.some((d) => d.data().status === "PAGO")) {

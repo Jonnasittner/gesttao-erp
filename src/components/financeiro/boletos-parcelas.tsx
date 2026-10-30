@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BarcodeIcon, CopyIcon, DownloadIcon, FilesIcon, Loader2Icon, SendIcon } from "lucide-react";
+import { BarcodeIcon, CopyIcon, CreditCardIcon, DownloadIcon, FilesIcon, Loader2Icon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { gerarCobrancasDoDocumento } from "@/server/asaas";
+import { gerarCartaoParcelado, gerarCobrancasDoDocumento } from "@/server/asaas";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO } from "@/lib/datetime";
 import { rotuloDocumento } from "@/lib/financeiro";
@@ -51,6 +51,29 @@ export function BoletosParcelas({ parcelas }: { parcelas: Lancamento[] }) {
     });
   }
 
+  function gerarCartao() {
+    const total = ordenadas.reduce((soma, p) => soma + p.valor, 0);
+    if (!confirm(`Gerar uma cobrança no cartão de crédito em ${ordenadas.length}x de ${formatarMoeda(total)}? Um link só para todas as parcelas.`)) {
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const link = desembrulhar(await gerarCartaoParcelado(ordenadas[0].id));
+        toast.success(`Cartão em ${ordenadas.length}x gerado no Asaas.`);
+        try {
+          await navigator.clipboard.writeText(link);
+          toast.info("Link de pagamento copiado.");
+        } catch {
+          // Sem permissão de área de transferência: o link fica no Cobrar das parcelas.
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao gerar o cartão parcelado.");
+      } finally {
+        router.refresh();
+      }
+    });
+  }
+
   const textoWhatsApp = [
     "Olá! Seguem os boletos das parcelas:",
     ...comCobranca.map(
@@ -71,10 +94,18 @@ export function BoletosParcelas({ parcelas }: { parcelas: Lancamento[] }) {
   return (
     <>
       {semCobranca.length > 0 ? (
-        <Button type="button" variant="outline" size="sm" onClick={gerar} disabled={isPending}>
-          {isPending ? <Loader2Icon className="animate-spin" /> : <BarcodeIcon />}
-          {isPending ? "Gerando..." : `Gerar boletos (${semCobranca.length})`}
-        </Button>
+        <>
+          <Button type="button" variant="outline" size="sm" onClick={gerar} disabled={isPending}>
+            {isPending ? <Loader2Icon className="animate-spin" /> : <BarcodeIcon />}
+            {isPending ? "Gerando..." : `Gerar boletos (${semCobranca.length})`}
+          </Button>
+          {/* Cartão parcelado só com todas as parcelas em aberto e sem cobrança. */}
+          {ordenadas.length > 1 && semCobranca.length === ordenadas.length && (
+            <Button type="button" variant="outline" size="sm" onClick={gerarCartao} disabled={isPending}>
+              <CreditCardIcon /> Cartão em {ordenadas.length}x
+            </Button>
+          )}
+        </>
       ) : (
         comCobranca.length > 0 && (
           <Button type="button" variant="outline" size="sm" onClick={() => setAberto(true)}>

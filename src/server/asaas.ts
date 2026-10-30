@@ -11,6 +11,7 @@ import {
   type CobrancaAsaas,
   configAsaas,
   criarCobrancaAsaas,
+  criarCobrancaCartaoParcelada,
   criarCobrancasDoDocumento,
   desvincularCobrancaAsaas,
   sincronizarCobrancaAsaas,
@@ -67,6 +68,17 @@ export async function excluirCobrancaAsaas(lancamentoId: string) {
     await exigirSessao();
     await cancelarCobrancaAsaas(lancamentoId);
     await revalidarLancamento(lancamentoId);
+  });
+}
+
+/** Cartão de crédito parcelado: um link para todas as parcelas do documento. */
+export async function gerarCartaoParcelado(lancamentoId: string) {
+  return comResultado(async () => {
+    await exigirSessao();
+    const link = await criarCobrancaCartaoParcelada(lancamentoId);
+    await revalidarLancamento(lancamentoId);
+    revalidatePath("/pedidos", "layout");
+    return link;
   });
 }
 

@@ -296,7 +296,13 @@ export type TipoCobrancaAsaas = (typeof TIPOS_COBRANCA_ASAAS)[number];
 export interface CobrancaAsaas {
   id: string;
   ambiente: AmbienteAsaas;
-  tipo: TipoCobrancaAsaas;
+  /** CREDIT_CARD só no cartão parcelado (um link para todas as parcelas do documento). */
+  tipo: TipoCobrancaAsaas | "CREDIT_CARD";
+  /**
+   * Id do parcelamento no Asaas (inst_...) quando a cobrança é uma das
+   * parcelas do cartão parcelado; o cliente paga todas num link só.
+   */
+  parcelamentoId?: string;
   /** Status do Asaas: PENDING, RECEIVED, CONFIRMED, OVERDUE, REFUNDED... */
   status: string;
   /** Página de pagamento do Asaas (serve para Pix, boleto e cartão). */
