@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BarcodeIcon, CopyIcon, Loader2Icon, SendIcon } from "lucide-react";
+import { BarcodeIcon, CopyIcon, DownloadIcon, FilesIcon, Loader2Icon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +17,7 @@ import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO } from "@/lib/datetime";
 import { rotuloDocumento } from "@/lib/financeiro";
 import { desembrulhar } from "@/lib/resultado";
+import { baixarBoletosSeparados, urlBoleto } from "@/lib/boletos-download";
 import type { Lancamento } from "@/lib/types";
 
 /**
@@ -31,6 +32,7 @@ export function BoletosParcelas({ parcelas }: { parcelas: Lancamento[] }) {
   const ordenadas = [...parcelas].sort((a, b) => a.parcela - b.parcela);
   const semCobranca = ordenadas.filter((p) => p.status !== "PAGO" && !p.asaas);
   const comCobranca = ordenadas.filter((p) => p.asaas);
+  const comBoleto = ordenadas.filter((p) => p.asaas?.linkBoleto);
   const numeroDocumento = ordenadas[0].numeroDocumento;
 
   function gerar() {
@@ -104,14 +106,24 @@ export function BoletosParcelas({ parcelas }: { parcelas: Lancamento[] }) {
                       : `Vence ${formatarDataISO(p.asaas?.vencimento ?? p.vencimento)}`}
                   </span>
                 </span>
-                {p.asaas?.linkBoleto || p.asaas?.linkPagamento ? (
+                {p.asaas?.linkBoleto ? (
                   <Button
                     variant="outline"
                     size="sm"
                     nativeButton={false}
-                    render={<a href={p.asaas.linkBoleto || p.asaas.linkPagamento} target="_blank" rel="noreferrer" />}
+                    render={<a href={urlBoleto(p.id, p.parcela)} download />}
+                    title="Baixar o boleto desta parcela"
                   >
-                    <BarcodeIcon /> {p.asaas.linkBoleto ? "PDF" : "Link"}
+                    <DownloadIcon /> PDF
+                  </Button>
+                ) : p.asaas?.linkPagamento ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    nativeButton={false}
+                    render={<a href={p.asaas.linkPagamento} target="_blank" rel="noreferrer" />}
+                  >
+                    <BarcodeIcon /> Link
                   </Button>
                 ) : (
                   <span className="text-xs text-muted-foreground">{p.status === "PAGO" ? "—" : "Sem boleto"}</span>
@@ -131,6 +143,22 @@ export function BoletosParcelas({ parcelas }: { parcelas: Lancamento[] }) {
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={copiarTudo}>
                 <CopyIcon /> Copiar links
+              </Button>
+            </div>
+          )}
+
+          {comBoleto.length > 1 && (
+            <div className="flex flex-wrap gap-2 border-t pt-3">
+              <Button type="button" variant="outline" size="sm" onClick={() => baixarBoletosSeparados(comBoleto)}>
+                <FilesIcon /> Baixar separados
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<a href={urlBoleto(comBoleto[0].id)} download />}
+              >
+                <DownloadIcon /> Baixar todos juntos
               </Button>
             </div>
           )}

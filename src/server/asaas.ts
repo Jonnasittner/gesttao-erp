@@ -6,14 +6,17 @@ import { comResultado } from "@/lib/resultado";
 import { db } from "@/lib/firebase-admin";
 import {
   buscarDadosPagamentoAsaas,
+  buscarVinculosAsaas,
   cancelarCobrancaAsaas,
   type CobrancaAsaas,
   configAsaas,
   criarCobrancaAsaas,
   criarCobrancasDoDocumento,
+  desvincularCobrancaAsaas,
   sincronizarCobrancaAsaas,
   TIPOS_COBRANCA_ASAAS,
   type TipoCobrancaAsaas,
+  vincularCobrancasAsaas,
 } from "@/lib/asaas";
 
 async function exigirSessao() {
@@ -64,6 +67,34 @@ export async function excluirCobrancaAsaas(lancamentoId: string) {
     await exigirSessao();
     await cancelarCobrancaAsaas(lancamentoId);
     await revalidarLancamento(lancamentoId);
+  });
+}
+
+/** Desfaz o vínculo da parcela com a cobrança, mantendo a cobrança no Asaas. */
+export async function desvincularCobrancaDoAsaas(lancamentoId: string) {
+  return comResultado(async () => {
+    await exigirSessao();
+    await desvincularCobrancaAsaas(lancamentoId);
+    await revalidarLancamento(lancamentoId);
+  });
+}
+
+/** Procura no Asaas (pelo CPF/CNPJ) cobranças feitas à mão e sugere a parcela de cada uma. */
+export async function procurarCobrancasNoAsaas() {
+  return comResultado(async () => {
+    await exigirSessao();
+    return buscarVinculosAsaas();
+  });
+}
+
+/** Vincula às parcelas as cobranças marcadas na tela. */
+export async function vincularCobrancasDoAsaas(pares: { lancamentoId: string; cobrancaId: string }[]) {
+  return comResultado(async () => {
+    await exigirSessao();
+    const vinculadas = await vincularCobrancasAsaas(pares.slice(0, 500));
+    revalidatePath("/financeiro");
+    revalidatePath("/pedidos", "layout");
+    return vinculadas;
   });
 }
 

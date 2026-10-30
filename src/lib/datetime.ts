@@ -65,6 +65,22 @@ export function hojeISO(): string {
 }
 
 /** "2026-09-16" → "16/09/2026". */
+/** ISO → "30/10/2026 14:05:09" no horário de Brasília (o servidor roda em UTC). */
+export function formatarDataHoraSegundos(iso: string): string {
+  if (!iso) return "";
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return "";
+  return data.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).replace(",", "");
+}
+
 export function formatarDataISO(valor: string): string {
   const [ano, mes, dia] = valor.split("-");
   return ano && mes && dia ? `${dia}/${mes}/${ano}` : "";

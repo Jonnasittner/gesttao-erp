@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { estaVencido } from "@/lib/financeiro";
 import type { Lancamento } from "@/lib/types";
 
-/** Recebido/Pago, Vencido, Vence hoje ou Pendente. */
+/** Recebido/Pago, Vencido, Vence hoje ou A receber/A pagar. */
 export function SituacaoBadge({ lancamento: l, hoje }: { lancamento: Lancamento; hoje: string }) {
   const aReceber = l.tipo === "RECEBER";
   if (l.status === "PAGO") return <Badge variant="secondary">{aReceber ? "Recebido" : "Pago"}</Badge>;
@@ -19,7 +19,7 @@ export function SituacaoBadge({ lancamento: l, hoje }: { lancamento: Lancamento;
   if (l.vencimento === hoje) return <Badge variant="outline">Vence hoje</Badge>;
   return (
     <Badge variant="outline" className="text-muted-foreground">
-      Pendente
+      {aReceber ? "A receber" : "A pagar"}
     </Badge>
   );
 }

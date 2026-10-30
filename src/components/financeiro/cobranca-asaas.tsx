@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   BarcodeIcon,
+  CheckIcon,
   CopyIcon,
   ExternalLinkIcon,
   LinkIcon,
@@ -13,6 +14,7 @@ import {
   RefreshCwIcon,
   SendIcon,
   Trash2Icon,
+  UnlinkIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,10 +25,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { detalharCobrancaAsaas, excluirCobrancaAsaas, gerarCobrancaAsaas } from "@/server/asaas";
+import {
+  desvincularCobrancaDoAsaas,
+  detalharCobrancaAsaas,
+  excluirCobrancaAsaas,
+  gerarCobrancaAsaas,
+} from "@/server/asaas";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO } from "@/lib/datetime";
 import { desembrulhar } from "@/lib/resultado";
+import { urlBoleto } from "@/lib/boletos-download";
 import type { CobrancaAsaas, Lancamento, TipoCobrancaAsaas } from "@/lib/types";
 
 const ROTULOS_STATUS: Record<string, string> = {
@@ -78,8 +86,26 @@ function CampoCopiavel({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-/** Botão "Cobrar" da parcela a receber: gera e mostra a cobrança do Asaas. */
-export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lancamento; documento: string }) {
+// Amarelo: falta cobrar. Verde: cobrança já gerada no Asaas.
+const CLASSE_COBRAR =
+  "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70";
+const CLASSE_GERADA =
+  "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 hover:text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70";
+
+/**
+ * Botão "Cobrar" da parcela a receber: gera e mostra a cobrança do Asaas. A
+ * baixa manual ("Já recebido") também fica aqui dentro; `onMarcarRecebido`
+ * abre a janela de data/banco do LancamentoAcoes.
+ */
+export function CobrancaAsaasBotao({
+  lancamento,
+  documento,
+  onMarcarRecebido,
+}: {
+  lancamento: Lancamento;
+  documento: string;
+  onMarcarRecebido?: () => void;
+}) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [detalhes, setDetalhes] = useState<Detalhes | null>(null);
@@ -116,6 +142,23 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
     });
   }
 
+  function desvincular() {
+    if (!confirm("Desvincular esta cobrança da parcela? Ela continua valendo no Asaas; só deixa de estar ligada aqui.")) {
+      return;
+    }
+    startTransition(async () => {
+      try {
+        desembrulhar(await desvincularCobrancaDoAsaas(lancamento.id));
+        toast.success("Cobrança desvinculada. No Asaas ela continua igual.");
+        setDetalhes(null);
+        setAberto(false);
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao desvincular.");
+      }
+    });
+  }
+
   function cancelar() {
     if (!confirm("Cancelar esta cobrança no Asaas? O link, o Pix e o boleto deixam de valer.")) return;
     startTransition(async () => {
@@ -135,16 +178,36 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
     ? `Olá! Segue o link para pagamento de ${formatarMoeda(cobranca.valor)} (vencimento ${formatarDataISO(cobranca.vencimento)}): ${cobranca.linkPagamento}`
     : "";
 
+  // Baixa à mão (dinheiro, transferência...): só enquanto a parcela não foi recebida.
+  const botaoRecebido = onMarcarRecebido && lancamento.status !== "PAGO" && (
+    <div className="border-t pt-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={isPending}
+        onClick={() => {
+          setAberto(false);
+          onMarcarRecebido();
+        }}
+        className="w-full text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+      >
+        <CheckIcon /> Já recebido (dinheiro, transferência...)
+      </Button>
+    </div>
+  );
+
   return (
     <>
       <Button
         type="button"
-        variant={lancamento.asaas ? "secondary" : "outline"}
+        variant="outline"
         size="sm"
         onClick={abrir}
+        className={lancamento.asaas ? CLASSE_GERADA : CLASSE_COBRAR}
         title={lancamento.asaas ? ROTULOS_STATUS[lancamento.asaas.status] ?? lancamento.asaas.status : "Gerar boleto, Pix ou link"}
       >
-        <QrCodeIcon /> {lancamento.asaas ? "Cobrança" : "Cobrar"}
+        <QrCodeIcon /> {lancamento.asaas ? "Gerado cobrança" : "Cobrar"}
       </Button>
 
       <Dialog open={aberto} onOpenChange={setAberto}>
@@ -186,11 +249,20 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
                   <Loader2Icon className="size-3.5 animate-spin" /> Gerando no Asaas...
                 </p>
               )}
+              {botaoRecebido}
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-2">
-                <Badge variant="secondary">{ROTULOS_STATUS[cobranca.status] ?? cobranca.status}</Badge>
+                <span className="flex flex-col gap-1">
+                  <Badge variant="secondary">{ROTULOS_STATUS[cobranca.status] ?? cobranca.status}</Badge>
+                  {/* Dados do próprio boleto no Asaas: ajuda a ver se o vínculo está certo. */}
+                  <span
+                    className={`text-xs ${cobranca.vencimento !== lancamento.vencimento ? "font-semibold text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}
+                  >
+                    No Asaas: {formatarMoeda(cobranca.valor)} · vence {formatarDataISO(cobranca.vencimento)}
+                  </span>
+                </span>
                 <Button type="button" variant="ghost" size="sm" onClick={carregar} disabled={isPending}>
                   {isPending ? <Loader2Icon className="animate-spin" /> : <RefreshCwIcon />} Atualizar
                 </Button>
@@ -236,7 +308,8 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
                     variant="outline"
                     size="sm"
                     nativeButton={false}
-                    render={<a href={cobranca.linkBoleto} target="_blank" rel="noreferrer" />}
+                    render={<a href={urlBoleto(lancamento.id, lancamento.parcela)} download />}
+                    title="Baixar o boleto desta parcela"
                   >
                     <BarcodeIcon /> Boleto (PDF)
                   </Button>
@@ -255,6 +328,18 @@ export function CobrancaAsaasBotao({ lancamento, documento }: { lancamento: Lanc
                   <Trash2Icon /> Cancelar cobrança
                 </Button>
               )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={desvincular}
+                disabled={isPending}
+                className="self-start text-muted-foreground"
+                title="Tira o vínculo com esta parcela sem apagar nada no Asaas"
+              >
+                <UnlinkIcon /> Desvincular (mantém no Asaas)
+              </Button>
+              {botaoRecebido}
             </div>
           )}
         </DialogContent>

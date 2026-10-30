@@ -92,8 +92,9 @@ export function LancamentoAcoes({
   return (
     <div className="flex items-center justify-end gap-1">
       {aReceber && (!pago || lancamento.asaas) && (
-        <CobrancaAsaasBotao lancamento={lancamento} documento={documento} />
+        <CobrancaAsaasBotao lancamento={lancamento} documento={documento} onMarcarRecebido={abrirConfirmacao} />
       )}
+      {/* A receber, o "Recebido" fica dentro do Cobrar; a pagar, segue aqui. */}
       {pago ? (
         <Button
           type="button"
@@ -107,16 +108,18 @@ export function LancamentoAcoes({
           <Undo2Icon />
         </Button>
       ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={isPending}
-          onClick={abrirConfirmacao}
-          className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
-        >
-          <CheckIcon /> {aReceber ? "Recebido" : "Pago"}
-        </Button>
+        !aReceber && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={abrirConfirmacao}
+            className="text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+          >
+            <CheckIcon /> Pago
+          </Button>
+        )
       )}
       <Button
         variant="ghost"

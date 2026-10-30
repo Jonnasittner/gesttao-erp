@@ -17,6 +17,14 @@ function tokenValido(recebido: string | null) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** "2026-10-30 14:05:09" (Brasília) → Date; formato inesperado vira undefined (usa a hora atual). */
+function instanteDoEvento(valor?: string): Date | undefined {
+  const m = valor?.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/);
+  if (!m) return undefined;
+  const data = new Date(`${m[1]}T${m[2]}-03:00`);
+  return Number.isNaN(data.getTime()) ? undefined : data;
+}
+
 export async function POST(request: NextRequest) {
   if (!tokenValido(request.headers.get("asaas-access-token"))) {
     return NextResponse.json({ erro: "token inválido" }, { status: 401 });
@@ -24,6 +32,8 @@ export async function POST(request: NextRequest) {
 
   const corpo = (await request.json().catch(() => null)) as {
     event?: string;
+    /** Quando o evento aconteceu, "AAAA-MM-DD HH:mm:ss" no horário de Brasília. */
+    dateCreated?: string;
     payment?: PagamentoAsaas & { externalReference?: string | null };
   } | null;
   const evento = corpo?.event;
@@ -46,7 +56,7 @@ export async function POST(request: NextRequest) {
       await db.collection("lancamentos").doc(lancamentoId).update({ asaas: null, updatedAt: new Date() });
     } else {
       // O payload do webhook tem o mesmo formato do GET /payments/{id}.
-      await sincronizarCobrancaAsaas(lancamentoId, pagamento);
+      await sincronizarCobrancaAsaas(lancamentoId, pagamento, instanteDoEvento(corpo?.dateCreated));
     }
   } catch (err) {
     // Responde 200 mesmo assim: erro faz o Asaas pausar a fila inteira. O botão

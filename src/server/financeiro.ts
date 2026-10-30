@@ -5,7 +5,9 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/firebase-admin";
 import { proximoNumero } from "@/lib/contador";
 import { formatarCodigo } from "@/lib/codigo";
-import { converterEmPedido } from "@/server/pedidos";
+import { buscarPedido, converterEmPedido } from "@/server/pedidos";
+import { buscarCadastro } from "@/server/cadastros";
+import { comResultado } from "@/lib/resultado";
 import { atualizarCobrancaAsaas, cancelarCobrancaAsaas, marcarRecebimentoManualAsaas } from "@/lib/asaas";
 import {
   type Lancamento,
@@ -50,6 +52,7 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
     vencimento: data.vencimento ?? "",
     status: data.status ?? "PENDENTE",
     dataPagamento: data.dataPagamento ?? "",
+    pagoEm: data.pagoEm?.toDate?.().toISOString() ?? "",
     banco: data.banco ?? "",
     descricao: data.descricao ?? "",
     asaas: data.asaas ?? null,
@@ -136,6 +139,23 @@ export async function buscarDocumentoFinanceiro(id: string): Promise<Lancamento[
   if (!doc.exists) return null;
   const parcelas = await buscarParcelasDoDocumento(doc.data()!.numeroDocumento);
   return parcelas.map(toLancamento);
+}
+
+/**
+ * Tudo do pop-up da conta a receber: o cliente, o pedido (com os itens) e
+ * todas as parcelas do documento da parcela `id`.
+ */
+export async function detalharContaAReceber(id: string) {
+  return comResultado(async () => {
+    const parcelas = await buscarDocumentoFinanceiro(id);
+    if (!parcelas?.length) throw new Error("Lançamento não encontrado.");
+    const { clienteId, pedidoId } = parcelas[0];
+    const [cliente, pedido] = await Promise.all([
+      clienteId ? buscarCadastro(clienteId) : null,
+      pedidoId ? buscarPedido(pedidoId) : null,
+    ]);
+    return { parcelas, cliente, pedido };
+  });
 }
 
 /** Recebimentos e custos (todas as parcelas) vinculados a um pedido. */
@@ -249,7 +269,9 @@ export async function atualizarLancamento(id: string, input: LancamentoInput) {
   const lote = db.batch();
   for (const parcela of parcelas) {
     if (parcela.id) {
-      lote.update(lancamentos().doc(parcela.id), { ...comum, ...parcela.campos, updatedAt: agora });
+      // Voltou para pendente no formulário: o horário do Asaas deixa de valer.
+      const pagoEm = parcela.campos.status === "PAGO" ? {} : { pagoEm: null };
+      lote.update(lancamentos().doc(parcela.id), { ...comum, ...parcela.campos, ...pagoEm, updatedAt: agora });
     } else {
       lote.set(lancamentos().doc(), {
         ...comum,
@@ -289,6 +311,8 @@ export async function alterarStatusLancamento(id: string, dataPagamento: string 
     .update({
       status: dataPagamento ? "PAGO" : "PENDENTE",
       dataPagamento: dataPagamento ?? "",
+      // Baixa à mão só tem o dia; o horário exato vem apenas do Asaas.
+      pagoEm: null,
       banco: dataPagamento ? banco.trim().toUpperCase() : "",
       updatedAt: new Date(),
     });

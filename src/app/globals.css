@@ -245,6 +245,16 @@
     radial-gradient(45rem 26rem at 100% 0%, color-mix(in oklch, oklch(0.62 0.19 320) 7%, transparent), transparent 55%);
 }
 
+/* Contas a pagar (vermelho) e a receber (verde): a página marca data-fundo e o
+   fundo da área de conteúdo inteira ganha a cor. Translúcido para servir no
+   tema claro e no escuro. */
+.fundo-conteudo:has([data-fundo="pagar"]) {
+  background-color: color-mix(in oklch, oklch(0.64 0.21 18) 12%, transparent);
+}
+.fundo-conteudo:has([data-fundo="receber"]) {
+  background-color: color-mix(in oklch, oklch(0.7 0.17 155) 12%, transparent);
+}
+
 /* Barra de rolagem discreta. */
 ::-webkit-scrollbar-thumb {
   background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);

@@ -335,6 +335,11 @@ export interface Lancamento {
   vencimento: string;
   status: StatusLancamento;
   dataPagamento: string;
+  /**
+   * Data e hora exatas (ISO) em que o Asaas avisou o pagamento da cobrança.
+   * "" nas baixas feitas à mão, que só têm o dia.
+   */
+  pagoEm: string;
   /** Banco onde foi recebido/pago. */
   banco: string;
   descricao: string;
