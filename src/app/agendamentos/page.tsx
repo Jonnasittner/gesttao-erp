@@ -8,5 +8,5 @@ export default async function AgendamentosPage() {
     buscarStatusGoogleCalendar(),
   ]);
 
-  return <AgendamentosClient cadastros={cadastros} emailGoogle={googleCalendar.email} />;
+  return <AgendamentosClient cadastros={cadastros} emailGoogle={googleCalendar.email} googleExpirado={googleCalendar.expirado} />;
 }

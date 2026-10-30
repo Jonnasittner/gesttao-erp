@@ -60,7 +60,9 @@ export function GoogleCalendarSecao({ status }: { status: StatusGoogleCalendar }
             Todos os agendamentos da equipe vão sozinhos para a agenda da conta Google conectada aqui.
           </p>
         </div>
-        {status.conectado ? (
+        {status.expirado ? (
+          <Badge variant="destructive">Expirado</Badge>
+        ) : status.conectado ? (
           <Badge variant="secondary">Conectado</Badge>
         ) : (
           <Badge variant="outline">Desconectado</Badge>
@@ -85,7 +87,19 @@ export function GoogleCalendarSecao({ status }: { status: StatusGoogleCalendar }
               </span>
             )}
           </p>
+          {status.expirado && (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              O Google recusou o acesso desta conta (permissão revogada ou expirada). Os agendamentos não estão
+              indo para a agenda — reconecte para voltar a sincronizar.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
+            {status.expirado && (
+              <Button size="sm" nativeButton={false} render={<a href="/api/google-calendar/conectar" />} className="gap-1.5">
+                <CalendarIcon className="h-4 w-4" />
+                Reconectar conta Google
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={desconectar} disabled={isPending} className="gap-1.5">
               <UnplugIcon className="h-4 w-4" />
               Desconectar

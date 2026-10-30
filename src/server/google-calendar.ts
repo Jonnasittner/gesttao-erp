@@ -16,6 +16,8 @@ export interface StatusGoogleCalendar {
   /** GOOGLE_CLIENT_ID/SECRET presentes no .env. */
   configurado: boolean;
   conectado: boolean;
+  /** Conectada, mas o Google recusou o token: precisa reconectar. */
+  expirado: boolean;
   email: string | null;
   conectadoEm: string | null;
   conectadoPor: string | null;
@@ -26,6 +28,7 @@ export async function buscarStatusGoogleCalendar(): Promise<StatusGoogleCalendar
   return {
     configurado: credenciaisGoogle() !== null,
     conectado: conexao !== null,
+    expirado: conexao?.expirada ?? false,
     email: conexao?.email ?? null,
     conectadoEm: conexao?.conectadoEm ?? null,
     conectadoPor: conexao?.conectadoPor ?? null,

@@ -25,7 +25,12 @@ export interface ConexaoGoogle {
   refreshToken: string;
   conectadoEm: string;
   conectadoPor: string | null;
+  /** O Google recusou o refresh token (revogado ou expirado): precisa reconectar. */
+  expirada: boolean;
 }
+
+export const MENSAGEM_CONEXAO_EXPIRADA =
+  "A conexão com o Google Calendar expirou. Reconecte a conta em Configurações.";
 
 export function credenciaisGoogle() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -48,6 +53,7 @@ export async function buscarConexaoGoogle(): Promise<ConexaoGoogle | null> {
     refreshToken: data.refreshToken,
     conectadoEm: data.conectadoEm?.toDate?.().toISOString() ?? "",
     conectadoPor: data.conectadoPor ?? null,
+    expirada: data.expirada === true,
   };
 }
 
@@ -63,6 +69,8 @@ async function obterAccessToken(conexao: ConexaoGoogle): Promise<string> {
     return tokenEmCache.accessToken;
   }
 
+  if (conexao.expirada) throw new Error(MENSAGEM_CONEXAO_EXPIRADA);
+
   const credenciais = credenciaisGoogle();
   if (!credenciais) throw new Error("GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET não configurados");
 
@@ -77,7 +85,16 @@ async function obterAccessToken(conexao: ConexaoGoogle): Promise<string> {
     }),
   });
   if (!resp.ok) {
-    throw new Error(`Falha ao renovar token do Google (${resp.status}): ${await resp.text()}`);
+    const corpo = await resp.text();
+    // invalid_grant = token revogado pela conta, senha trocada ou app OAuth em
+    // modo "Teste" (tokens valem só 7 dias). Marca a conexão para a tela pedir
+    // reconexão em vez de bater no Google a cada agendamento salvo.
+    if (resp.status === 400 && corpo.includes("invalid_grant")) {
+      await conexaoRef().update({ expirada: true });
+      limparTokenEmCache();
+      throw new Error(MENSAGEM_CONEXAO_EXPIRADA);
+    }
+    throw new Error(`Falha ao renovar token do Google (${resp.status}): ${corpo}`);
   }
 
   const json = (await resp.json()) as { access_token: string; expires_in: number };
@@ -174,7 +191,7 @@ async function fetchComRetentativa(url: string, init: RequestInit): Promise<Resp
 /** Cria ou atualiza um evento pelo seu ID. Sem conta conectada, não faz nada. */
 async function gravarEvento(evento: { id: string } & Record<string, unknown>) {
   const conexao = await buscarConexaoGoogle();
-  if (!conexao) return;
+  if (!conexao || conexao.expirada) return;
 
   const token = await obterAccessToken(conexao);
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
@@ -197,7 +214,7 @@ async function gravarEvento(evento: { id: string } & Record<string, unknown>) {
 /** Remove um evento pelo seu ID (ignora se já não existir). */
 async function apagarEvento(id: string) {
   const conexao = await buscarConexaoGoogle();
-  if (!conexao) return;
+  if (!conexao || conexao.expirada) return;
 
   const token = await obterAccessToken(conexao);
   const resp = await fetchComRetentativa(`${API_EVENTOS}/${id}`, {

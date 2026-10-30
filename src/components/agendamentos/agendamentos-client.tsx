@@ -18,6 +18,8 @@ interface AgendamentosClientProps {
   cadastros: Cadastro[];
   /** E-mail da conta Google conectada em Configurações (null = não conectada). */
   emailGoogle: string | null;
+  /** Conta conectada, mas o Google recusou o token — precisa reconectar. */
+  googleExpirado: boolean;
 }
 
 const DIAS_SEMANA = ["DOM.", "SEG.", "TER.", "QUA.", "QUI.", "SEX.", "SÁB."];
@@ -200,7 +202,7 @@ function ChipEvento({ evento, onReagendar }: { evento: EventoGoogle; onReagendar
   );
 }
 
-export function AgendamentosClient({ cadastros, emailGoogle }: AgendamentosClientProps) {
+export function AgendamentosClient({ cadastros, emailGoogle, googleExpirado }: AgendamentosClientProps) {
   const hoje = hojeISO();
   const [ano, setAno] = useState(() => Number(hoje.slice(0, 4)));
   const [mes, setMes] = useState(() => Number(hoje.slice(5, 7)) - 1);
@@ -216,7 +218,7 @@ export function AgendamentosClient({ cadastros, emailGoogle }: AgendamentosClien
   const grade = useMemo(() => diasDaGrade(ano, mes), [ano, mes]);
 
   useEffect(() => {
-    if (!emailGoogle) return;
+    if (!emailGoogle || googleExpirado) return;
     const timeMin = new Date(`${grade[0].chave}T00:00:00-03:00`).toISOString();
     const timeMax = new Date(`${grade[grade.length - 1].chave}T23:59:59-03:00`).toISOString();
     startTransition(async () => {
@@ -226,7 +228,7 @@ export function AgendamentosClient({ cadastros, emailGoogle }: AgendamentosClien
         toast.error(err instanceof Error ? err.message : "Erro ao carregar a agenda do Google.");
       }
     });
-  }, [emailGoogle, grade, versao]);
+  }, [emailGoogle, googleExpirado, grade, versao]);
 
   const eventosPorDia = useMemo(() => {
     const mapa = new Map<string, EventoGoogle[]>();
@@ -257,14 +259,14 @@ export function AgendamentosClient({ cadastros, emailGoogle }: AgendamentosClien
     timeZone: "UTC",
   });
 
-  if (!emailGoogle) {
+  if (!emailGoogle || googleExpirado) {
     return (
       <div className="flex flex-col gap-6 animate-fade-in">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.7rem]">Agenda de contatos</h1>
         <div className="superficie p-6 text-sm text-muted-foreground">
-          Nenhuma conta Google conectada.{" "}
+          {googleExpirado ? "A conexão com o Google expirou." : "Nenhuma conta Google conectada."}{" "}
           <Link href="/configuracoes" className="font-medium text-primary underline-offset-4 hover:underline">
-            Conecte em Configurações
+            {googleExpirado ? "Reconecte em Configurações" : "Conecte em Configurações"}
           </Link>{" "}
           para ver a agenda aqui.
         </div>
