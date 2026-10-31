@@ -51,7 +51,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/80 px-4 py-3 backdrop-blur-lg md:hidden">
         <Marca tamanho="pequena" />
         <div className="flex items-center gap-1">
-          <Notificacoes />
+          <Notificacoes em="celular" />
           <MenuUsuario nome={nomeUsuario} email={email} iniciais={iniciais} />
         </div>
       </header>
@@ -74,7 +74,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <main className="fundo-conteudo flex-1 overflow-y-auto p-4 pb-28 md:px-8 md:pt-0 md:pb-10">
         {/* Linha do topo — computador (no celular fica no cabeçalho): notificações e usuário */}
         <div className="sticky top-0 z-20 -mx-8 mb-6 hidden h-14 items-center justify-end gap-1 border-b bg-background/70 px-8 backdrop-blur-lg md:flex">
-          <Notificacoes />
+          <Notificacoes em="computador" />
           <MenuUsuario nome={nomeUsuario} email={email} iniciais={iniciais} />
         </div>
         <div className="mx-auto w-full max-w-7xl animate-fade-in">{children}</div>

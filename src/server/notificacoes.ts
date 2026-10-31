@@ -14,8 +14,13 @@ async function exigirUsuario() {
   return session.user.id;
 }
 
-/** As 30 mais recentes, marcando quais o usuário logado já viu. */
-export async function listarNotificacoes() {
+/**
+ * Notificações marcando quais o usuário logado já viu. Sem `desde`, as 20
+ * mais recentes (ao abrir a tela); com `desde` (ISO da mais nova que a tela
+ * já tem), só as que chegaram depois — a consulta periódica custa 1 leitura
+ * no Firestore quando não há nada novo, em vez de reler todas.
+ */
+export async function listarNotificacoes(desde?: string) {
   return comResultado<Notificacao[]>(async () => {
     const usuarioId = await exigirUsuario();
     // Aproveita a consulta periódica das telas abertas para conferir no Asaas
@@ -26,7 +31,12 @@ export async function listarNotificacoes() {
       return 0;
     });
     if (baixas > 0) revalidatePath("/financeiro");
-    const snap = await notificacoesRef().orderBy("criadaEm", "desc").limit(30).get();
+    const aPartir = desde ? new Date(desde) : null;
+    const consulta =
+      aPartir && !Number.isNaN(aPartir.getTime())
+        ? notificacoesRef().where("criadaEm", ">", aPartir).orderBy("criadaEm", "desc").limit(20)
+        : notificacoesRef().orderBy("criadaEm", "desc").limit(20);
+    const snap = await consulta.get();
     return snap.docs.map((doc) => {
       const data = doc.data();
       return {

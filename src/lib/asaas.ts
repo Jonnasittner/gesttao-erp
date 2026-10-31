@@ -357,58 +357,81 @@ export async function criarCobrancaCartaoParcelada(lancamentoId: string): Promis
 }
 
 /** Intervalo mínimo entre duas conferências automáticas das cobranças em aberto. */
-const INTERVALO_CONFERENCIA_MS = 3 * 60_000;
+const INTERVALO_CONFERENCIA_MS = 5 * 60_000;
+/** Quantos dias para trás a conferência olha os pagamentos recebidos. */
+const DIAS_CONFERENCIA = 10;
+/** Quantos ids de pagamentos já conferidos ficam guardados na marca. */
+const MAX_PROCESSADAS = 400;
+
+// Última conferência nesta instância do servidor: evita até a leitura da
+// marca no Firestore quando a mesma instância acabou de conferir.
+let ultimaConferenciaLocal = 0;
 
 /**
- * Confere no Asaas as cobranças em aberto e dá baixa nas que foram pagas.
- * Rede de segurança para quando o webhook não chega (não configurado, fila
- * pausada no Asaas, ou o sistema rodando em localhost). Roda no máximo a cada
- * 3 minutos para a equipe toda (a marca fica em configuracoes/asaasConferencia);
- * quem chama é a busca de notificações das telas abertas.
+ * Confere no Asaas as cobranças pagas e dá baixa nas parcelas ainda em
+ * aberto. Rede de segurança para quando o webhook não chega (não configurado,
+ * fila pausada no Asaas, ou o sistema rodando em localhost). Roda no máximo a
+ * cada 5 minutos para a equipe toda; quem chama é a busca de notificações
+ * das telas abertas.
+ *
+ * Cuidado com a cota de leituras do Firestore (plano gratuito: 50 mil por
+ * dia): a marca configuracoes/asaasConferencia guarda os pagamentos já
+ * conferidos, e só os novos viram consulta no banco (pelo id da cobrança).
  */
 export async function conferirCobrancasEmAberto(): Promise<number> {
   const config = configAsaas();
   if (!config) return 0;
+  if (Date.now() - ultimaConferenciaLocal < INTERVALO_CONFERENCIA_MS) return 0;
+  ultimaConferenciaLocal = Date.now();
 
   const marca = db.collection("configuracoes").doc("asaasConferencia");
-  const podeRodar = await db.runTransaction(async (t) => {
-    const ultima = (await t.get(marca)).data()?.ultimaEm?.toDate?.() as Date | undefined;
-    if (ultima && Date.now() - ultima.getTime() < INTERVALO_CONFERENCIA_MS) return false;
-    t.set(marca, { ultimaEm: new Date() });
-    return true;
+  const processadas = await db.runTransaction(async (t) => {
+    const dados = (await t.get(marca)).data();
+    const ultima = dados?.ultimaEm?.toDate?.() as Date | undefined;
+    if (ultima && Date.now() - ultima.getTime() < INTERVALO_CONFERENCIA_MS) return null;
+    t.set(marca, { ultimaEm: new Date() }, { merge: true });
+    return new Set<string>(dados?.processadas ?? []);
   });
-  if (!podeRodar) return 0;
+  if (!processadas) return 0;
 
   // Duas listagens no Asaas em vez de uma consulta por cobrança: precisa caber
   // no tempo de uma chamada da tela (no Netlify, uns 10 s). Recebidas nos
   // últimos dias + confirmadas (cartão, ainda não creditadas).
   const desde = new Date(`${hojeISO()}T00:00:00Z`);
   desde.setUTCDate(desde.getUTCDate() - DIAS_CONFERENCIA);
-  const [recebidas, confirmadas, snap] = await Promise.all([
+  const [recebidas, confirmadas] = await Promise.all([
     listarTudoAsaas<PagamentoAsaas>(`/payments?status=RECEIVED&${encodeURIComponent("paymentDate[ge]")}=${desde.toISOString().slice(0, 10)}`),
     listarTudoAsaas<PagamentoAsaas>("/payments?status=CONFIRMED"),
-    db.collection("lancamentos").where("status", "==", "PENDENTE").get(),
   ]);
-  const pagas = new Map([...recebidas, ...confirmadas].map((p) => [p.id, p]));
+  const novas = [...recebidas, ...confirmadas].filter((p) => !processadas.has(p.id));
+  if (novas.length === 0) return 0;
 
+  // Só as parcelas destas cobranças ("in" aceita até 30 valores por consulta).
+  const porId = new Map(novas.map((p) => [p.id, p]));
+  const ids = [...porId.keys()];
   let baixas = 0;
-  for (const doc of snap.docs) {
-    const asaas = doc.data().asaas as CobrancaAsaas | null | undefined;
-    if (doc.data().tipo !== "RECEBER" || !asaas?.id || asaas.ambiente !== config.ambiente) continue;
-    const pagamento = pagas.get(asaas.id);
-    if (!pagamento) continue;
-    // Uma cobrança com erro não impede as outras.
-    const pago = await sincronizarCobrancaAsaas(doc.id, pagamento).catch((err) => {
-      console.error("[asaas] falha ao conferir cobrança", doc.id, err);
-      return false;
-    });
-    if (pago) baixas++;
+  const falharam = new Set<string>();
+  for (let i = 0; i < ids.length; i += 30) {
+    const snap = await db.collection("lancamentos").where("asaas.id", "in", ids.slice(i, i + 30)).get();
+    for (const doc of snap.docs) {
+      const l = doc.data();
+      if (l.status !== "PENDENTE" || l.tipo !== "RECEBER" || l.asaas?.ambiente !== config.ambiente) continue;
+      // Uma cobrança com erro não impede as outras.
+      const pago = await sincronizarCobrancaAsaas(doc.id, porId.get(l.asaas.id)).catch((err) => {
+        console.error("[asaas] falha ao conferir cobrança", doc.id, err);
+        falharam.add(l.asaas.id);
+        return false;
+      });
+      if (pago) baixas++;
+    }
   }
+
+  // Guarda as conferidas (as mais recentes primeiro) para não reler na
+  // próxima vez; as que deram erro ficam de fora e são tentadas de novo.
+  const conferidas = ids.filter((id) => !falharam.has(id));
+  await marca.set({ processadas: [...conferidas, ...processadas].slice(0, MAX_PROCESSADAS) }, { merge: true });
   return baixas;
 }
-
-/** Quantos dias para trás a conferência olha os pagamentos recebidos. */
-const DIAS_CONFERENCIA = 10;
 
 /**
  * Tira a cobrança da parcela sem mexer no Asaas (o boleto continua valendo

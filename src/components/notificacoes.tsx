@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Globe } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,33 +10,52 @@ import { formatarDataHoraSegundos } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { ehErroDeVersaoAntiga, recarregarUmaVez } from "@/lib/versao-antiga";
 
-// Confere a cada 30 s se chegou algo novo (ex.: boleto pago avisado pelo Asaas).
-const INTERVALO_MS = 30_000;
+// Confere a cada 60 s se chegou algo novo (ex.: boleto pago avisado pelo
+// Asaas). Cada consulta custa leituras no Firestore (cota diária do plano
+// gratuito): por isso só pede as notificações mais novas que a última já
+// recebida, e só com a aba visível.
+const INTERVALO_MS = 60_000;
+const MAX_NA_LISTA = 30;
 
-export function Notificacoes() {
+// O planeta aparece no cabeçalho do celular e na barra do computador (um dos
+// dois fica escondido pelo CSS); só o que está à vista consulta o servidor.
+const MIDIA: Record<"celular" | "computador", string> = {
+  celular: "(max-width: 767.98px)",
+  computador: "(min-width: 768px)",
+};
+
+export function Notificacoes({ em }: { em: "celular" | "computador" }) {
   const [lista, setLista] = useState<Notificacao[]>([]);
   const [aberto, setAberto] = useState(false);
+  const maisNova = useRef<string | null>(null);
 
   const carregar = useCallback(async () => {
-    const resultado = await listarNotificacoes().catch((err) => {
+    const resultado = await listarNotificacoes(maisNova.current ?? undefined).catch((err) => {
       // Aba aberta durante um deploy: recarrega para pegar a versão nova.
       if (ehErroDeVersaoAntiga(err)) recarregarUmaVez();
       return null;
     });
-    if (resultado?.ok) setLista(resultado.dados);
+    if (!resultado?.ok || resultado.dados.length === 0) return;
+    const novas = resultado.dados;
+    if (novas[0]?.criadaEm) maisNova.current = novas[0].criadaEm;
+    setLista((atual) => {
+      const ids = new Set(novas.map((n) => n.id));
+      return [...novas, ...atual.filter((n) => !ids.has(n.id))].slice(0, MAX_NA_LISTA);
+    });
   }, []);
 
   useEffect(() => {
+    if (!window.matchMedia(MIDIA[em]).matches) return;
     // Primeira busca fora do corpo do efeito (regra do React sobre setState síncrono).
     const primeira = setTimeout(carregar, 0);
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") carregar();
+      if (document.visibilityState === "visible" && window.matchMedia(MIDIA[em]).matches) carregar();
     }, INTERVALO_MS);
     return () => {
       clearTimeout(primeira);
       clearInterval(timer);
     };
-  }, [carregar]);
+  }, [carregar, em]);
 
   const naoLidas = lista.filter((n) => !n.lida);
 
