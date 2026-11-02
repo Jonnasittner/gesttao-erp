@@ -356,6 +356,60 @@ export interface Lancamento {
   updatedAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// Conciliação (extrato da conta Asaas)
+// ---------------------------------------------------------------------------
+
+export const STATUS_MOVIMENTACAO = ["PENDENTE", "JUSTIFICADA"] as const;
+export type StatusMovimentacao = (typeof STATUS_MOVIMENTACAO)[number];
+
+/**
+ * Como a movimentação foi justificada:
+ * - AUTOMATICA: o próprio sistema (cobrança de uma parcela, taxa do Asaas);
+ * - VINCULADA: ligada a uma conta a pagar/receber que já existia;
+ * - LANCADA: virou um lançamento a pagar novo, já pago (ex.: frete);
+ * - TEXTO: só uma explicação, sem lançamento (ex.: transferência entre contas).
+ */
+export type ModoJustificativa = "AUTOMATICA" | "VINCULADA" | "LANCADA" | "TEXTO";
+
+export interface JustificativaMovimentacao {
+  modo: ModoJustificativa;
+  texto: string;
+  categoria: CategoriaCusto | "";
+  /** Lançamento ligado (VINCULADA, LANCADA e cobranças automáticas). */
+  lancamentoId: string;
+  /** "0020" ou "0020-1/3", para mostrar sem reler o lançamento. */
+  documento: string;
+  /** VINCULADA: a justificativa deu a baixa na conta (desfazer volta para pendente). */
+  marcouPago: boolean;
+  usuarioNome: string | null;
+  /** ISO. */
+  em: string;
+}
+
+/** Uma linha do extrato do Asaas (coleção "movimentacoesAsaas", id = id do Asaas). */
+export interface MovimentacaoAsaas {
+  id: string;
+  ambiente: AmbienteAsaas;
+  /** "AAAA-MM-DD". */
+  data: string;
+  /** Negativo nas saídas. */
+  valor: number;
+  /** Saldo da conta logo depois da movimentação. */
+  saldo: number;
+  /** Tipo do Asaas (PAYMENT_RECEIVED, TRANSFER, PAYMENT_FEE...). */
+  tipo: string;
+  descricao: string;
+  /** Quem recebeu a transferência/Pix, quando o Asaas informa. */
+  contraparte: string;
+  paymentId: string;
+  transferId: string;
+  status: StatusMovimentacao;
+  justificativa: JustificativaMovimentacao | null;
+  /** ISO: quando o sistema viu a movimentação (para destacar as novas). */
+  criadaEm: string;
+}
+
 export interface Anexo {
   id: string;
   interacaoId: string;

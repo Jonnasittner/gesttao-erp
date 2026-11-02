@@ -6,6 +6,7 @@ import { comResultado } from "@/lib/resultado";
 import { db } from "@/lib/firebase-admin";
 import { type Notificacao, notificacoesRef } from "@/lib/notificacoes";
 import { conferirCobrancasEmAberto } from "@/lib/asaas";
+import { LINK_CONCILIACAO, sincronizarExtratoAsaas } from "@/lib/conciliacao";
 import { revalidatePath } from "next/cache";
 
 async function exigirUsuario() {
@@ -26,11 +27,20 @@ export async function listarNotificacoes(desde?: string) {
     // Aproveita a consulta periódica das telas abertas para conferir no Asaas
     // as cobranças em aberto (no máximo a cada 3 min). Pagamento achado aqui
     // já cria a notificação lida logo abaixo.
-    const baixas = await conferirCobrancasEmAberto().catch((err) => {
-      console.error("[asaas] falha na conferência", err);
-      return 0;
-    });
+    // e traz as movimentações novas do extrato para a Conciliação (em paralelo:
+    // precisa caber no tempo de uma chamada da tela).
+    const [baixas, aConciliar] = await Promise.all([
+      conferirCobrancasEmAberto().catch((err) => {
+        console.error("[asaas] falha na conferência", err);
+        return 0;
+      }),
+      sincronizarExtratoAsaas().catch((err) => {
+        console.error("[conciliacao] falha ao ler o extrato", err);
+        return 0;
+      }),
+    ]);
     if (baixas > 0) revalidatePath("/financeiro");
+    if (aConciliar > 0) revalidatePath(LINK_CONCILIACAO);
     const aPartir = desde ? new Date(desde) : null;
     const consulta =
       aPartir && !Number.isNaN(aPartir.getTime())

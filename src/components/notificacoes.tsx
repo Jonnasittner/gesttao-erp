@@ -9,6 +9,7 @@ import type { Notificacao } from "@/lib/notificacoes";
 import { formatarDataHoraSegundos } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { ehErroDeVersaoAntiga, recarregarUmaVez } from "@/lib/versao-antiga";
+import { EVENTO_CONCILIACAO, LINK_CONCILIACAO } from "@/lib/conciliacao-aviso";
 
 // Confere a cada 60 s se chegou algo novo (ex.: boleto pago avisado pelo
 // Asaas). Cada consulta custa leituras no Firestore (cota diária do plano
@@ -38,6 +39,10 @@ export function Notificacoes({ em }: { em: "celular" | "computador" }) {
     if (!resultado?.ok || resultado.dados.length === 0) return;
     const novas = resultado.dados;
     if (novas[0]?.criadaEm) maisNova.current = novas[0].criadaEm;
+    // Movimentação nova para conciliar: o menu acende o item Conciliação.
+    if (novas.some((n) => !n.lida && n.link === LINK_CONCILIACAO)) {
+      window.dispatchEvent(new Event(EVENTO_CONCILIACAO));
+    }
     setLista((atual) => {
       const ids = new Set(novas.map((n) => n.id));
       return [...novas, ...atual.filter((n) => !ids.has(n.id))].slice(0, MAX_NA_LISTA);

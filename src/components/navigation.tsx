@@ -1,8 +1,9 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { EVENTO_CONCILIACAO, LINK_CONCILIACAO } from "@/lib/conciliacao-aviso";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -12,6 +13,7 @@ import {
   Loader2,
   Magnet,
   Package,
+  Scale,
   ShoppingCart,
   Users,
   type LucideIcon,
@@ -64,6 +66,7 @@ const GRUPOS: GrupoNav[] = [
     itens: [
       { href: "/financeiro?tipo=PAGAR", label: "Contas a pagar", curto: "A pagar", icon: ArrowUpCircle },
       { href: "/financeiro?tipo=RECEBER", label: "Contas a receber", curto: "A receber", icon: ArrowDownCircle },
+      { href: LINK_CONCILIACAO, label: "Conciliação", icon: Scale },
     ],
   },
   {
@@ -90,6 +93,29 @@ function useItemAtivo() {
   };
 }
 
+// Ponto pulsando no item Conciliação quando chega movimentação nova para
+// justificar (aviso vindo das notificações); some ao abrir a tela.
+function useAvisoConciliacao() {
+  const pathname = usePathname();
+  const [aviso, setAviso] = useState(false);
+  useEffect(() => {
+    const ouvir = () => setAviso(true);
+    window.addEventListener(EVENTO_CONCILIACAO, ouvir);
+    return () => window.removeEventListener(EVENTO_CONCILIACAO, ouvir);
+  }, []);
+  const naTela = pathname.startsWith(LINK_CONCILIACAO);
+  return { mostrar: aviso && !naTela, limpar: () => setAviso(false) };
+}
+
+function PontoAviso({ className = "" }: { className?: string }) {
+  return (
+    <span aria-hidden className={`flex size-2.5 ${className}`}>
+      <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-amber-500 opacity-75" />
+      <span className="relative inline-flex size-2.5 rounded-full bg-amber-500 ring-2 ring-background" />
+    </span>
+  );
+}
+
 // Textos que só aparecem com a barra lateral aberta (ver AppShell: recolhida
 // mostra só os ícones e abre ao passar o mouse).
 const SO_ABERTA =
@@ -97,6 +123,7 @@ const SO_ABERTA =
 
 export function SidebarNav() {
   const itemAtivo = useItemAtivo();
+  const avisoConciliacao = useAvisoConciliacao();
 
   return (
     <nav className="flex flex-col gap-5 px-3 py-1">
@@ -114,10 +141,12 @@ export function SidebarNav() {
           </div>
           {grupo.itens.map((item) => {
             const ativo = itemAtivo(item.href);
+            const comAviso = item.href === LINK_CONCILIACAO && avisoConciliacao.mostrar;
 
             return (
               <Link
                 key={item.href}
+                onClick={item.href === LINK_CONCILIACAO ? avisoConciliacao.limpar : undefined}
                 href={item.emBreve ? "#" : item.href}
                 aria-disabled={item.emBreve}
                 aria-current={ativo ? "page" : undefined}
@@ -138,6 +167,7 @@ export function SidebarNav() {
                     ativo && !item.emBreve ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                   }`}
                 />
+                {comAviso && <PontoAviso className="absolute top-1.5 left-6" />}
                 <span className={`truncate ${SO_ABERTA}`}>{item.label}</span>
                 {!item.emBreve && <IndicadorCarregando className="ml-auto" />}
                 {item.emBreve && (
@@ -158,6 +188,7 @@ export function SidebarNav() {
 export function MobileNav() {
   const pathname = usePathname();
   const itemAtivo = useItemAtivo();
+  const avisoConciliacao = useAvisoConciliacao();
   const mobileItems = ITENS.filter((item) => !item.emBreve);
   const navRef = useRef<HTMLElement>(null);
 
@@ -182,6 +213,7 @@ export function MobileNav() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={item.href === LINK_CONCILIACAO ? avisoConciliacao.limpar : undefined}
             aria-current={ativo ? "page" : undefined}
             className={`relative flex shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 transition-colors ${
               ativo ? "bg-primary/10 text-primary" : "text-muted-foreground"
@@ -190,6 +222,9 @@ export function MobileNav() {
             <item.icon className={`size-5 ${ativo ? "stroke-[2.4px]" : "stroke-[1.9px]"}`} />
             <span className="text-[10px] font-semibold tracking-wide">{curto}</span>
             <IndicadorCarregando className="absolute top-0.5 right-1" />
+            {item.href === LINK_CONCILIACAO && avisoConciliacao.mostrar && (
+              <PontoAviso className="absolute top-1 left-1/2 ml-1.5" />
+            )}
           </Link>
         );
       })}

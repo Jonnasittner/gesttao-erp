@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/firebase-admin";
 import { type PagamentoAsaas, sincronizarCobrancaAsaas } from "@/lib/asaas";
+import { LINK_CONCILIACAO, sincronizarExtratoAsaas } from "@/lib/conciliacao";
 
 // Webhook de cobranças do Asaas (Integrações > Webhooks no painel do Asaas).
 // O token configurado lá vem no header "asaas-access-token" e precisa bater
@@ -37,6 +38,18 @@ export async function POST(request: NextRequest) {
     payment?: PagamentoAsaas & { externalReference?: string | null };
   } | null;
   const evento = corpo?.event;
+
+  // Transferência/Pix enviado: o dinheiro saiu da conta, então a Conciliação
+  // lê o extrato agora em vez de esperar a próxima leitura periódica.
+  if (evento?.startsWith("TRANSFER_")) {
+    const novas = await sincronizarExtratoAsaas({ forcar: true }).catch((err) => {
+      console.error("[conciliacao] falha ao ler o extrato pelo webhook", evento, err);
+      return 0;
+    });
+    if (novas > 0) revalidatePath(LINK_CONCILIACAO);
+    return NextResponse.json({ ok: true });
+  }
+
   const pagamento = corpo?.payment;
   if (!pagamento?.id) return NextResponse.json({ ok: true });
 

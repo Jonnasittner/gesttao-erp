@@ -567,7 +567,7 @@ interface ListaAsaas<T> {
 }
 
 /** Percorre todas as páginas de uma listagem do Asaas (100 por vez). */
-async function listarTudoAsaas<T>(caminho: string): Promise<T[]> {
+export async function listarTudoAsaas<T>(caminho: string): Promise<T[]> {
   const itens: T[] = [];
   for (let offset = 0; ; offset += 100) {
     const sep = caminho.includes("?") ? "&" : "?";

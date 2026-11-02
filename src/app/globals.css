@@ -277,7 +277,18 @@
   100% { background-position: 0 50%; }
 }
 
+/* Conciliação: movimentação recém-chegada pulsa um brilho âmbar até ser justificada. */
+.movimentacao-nova {
+  animation: brilhoMovimentacao 2.4s ease-in-out infinite;
+}
+
+@keyframes brilhoMovimentacao {
+  0%, 100% { box-shadow: var(--sombra-suave), 0 0 0 0 rgb(245 158 11 / 0); }
+  50% { box-shadow: var(--sombra-suave), 0 0 0 4px rgb(245 158 11 / 0.28); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .esqueleto { animation: none; }
+  .movimentacao-nova { animation: none; }
   .superficie-interativa:hover { transform: none; }
 }
