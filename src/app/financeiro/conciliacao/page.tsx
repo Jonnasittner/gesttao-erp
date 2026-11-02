@@ -15,7 +15,8 @@ import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataHoraSegundos, formatarDataISO } from "@/lib/datetime";
 import { ROTULOS_CATEGORIA_CUSTO } from "@/lib/rotulos";
 import { cn } from "@/lib/utils";
-import type { MovimentacaoAsaas } from "@/lib/types";
+import { listarClassesDespesa } from "@/server/classes-despesa";
+import type { ClasseDespesa, MovimentacaoAsaas } from "@/lib/types";
 
 const FILTROS = [
   { valor: "", label: "Pendentes" },
@@ -27,7 +28,14 @@ export default async function ConciliacaoPage({ searchParams }: { searchParams: 
   const params = await searchParams;
   const ver = FILTROS.find((f) => f.valor === params.ver)?.valor ?? "";
   const config = configAsaas();
-  const { pendentes, justificadas, novasDesde } = await listarMovimentacoes();
+  const [{ pendentes, justificadas, novasDesde }, todasClasses] = await Promise.all([
+    listarMovimentacoes(),
+    listarClassesDespesa(),
+  ]);
+  // Só as ativas viram opção no "Lançar gasto".
+  const classes = todasClasses
+    .filter((c) => c.ativa)
+    .map((c) => ({ ...c, subclasses: c.subclasses.filter((s) => s.ativa) }));
 
   const lista =
     ver === "" ? pendentes : ver === "justificadas" ? justificadas : [...pendentes, ...justificadas].sort(
@@ -116,14 +124,19 @@ export default async function ConciliacaoPage({ searchParams }: { searchParams: 
           </p>
         )}
         {lista.map((m) => (
-          <LinhaMovimentacao key={m.id} m={m} nova={m.status === "PENDENTE" && m.criadaEm > novasDesde} />
+          <LinhaMovimentacao
+            key={m.id}
+            m={m}
+            nova={m.status === "PENDENTE" && m.criadaEm > novasDesde}
+            classes={classes}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function LinhaMovimentacao({ m, nova }: { m: MovimentacaoAsaas; nova: boolean }) {
+function LinhaMovimentacao({ m, nova, classes }: { m: MovimentacaoAsaas; nova: boolean; classes: ClasseDespesa[] }) {
   const saida = m.valor < 0;
   const pendente = m.status === "PENDENTE";
   const j = m.justificativa;
@@ -166,6 +179,7 @@ function LinhaMovimentacao({ m, nova }: { m: MovimentacaoAsaas; nova: boolean })
             <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
               <span className="font-semibold">✓ {j.texto || "Justificada"}</span>
               {j.categoria && ` · ${ROTULOS_CATEGORIA_CUSTO[j.categoria]}`}
+              {j.classe && ` · ${j.classe}`}
               {j.documento && j.lancamentoId && (
                 <>
                   {" · "}
@@ -195,7 +209,7 @@ function LinhaMovimentacao({ m, nova }: { m: MovimentacaoAsaas; nova: boolean })
           {formatarMoeda(Math.abs(m.valor))}
         </span>
         {pendente ? (
-          <JustificarMovimentacao movimentacao={m} resumo={resumoMovimentacao(m)} />
+          <JustificarMovimentacao movimentacao={m} resumo={resumoMovimentacao(m)} classes={classes} />
         ) : (
           <div className="flex items-center gap-1">
             <Badge

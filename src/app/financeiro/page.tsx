@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PlusIcon } from "lucide-react";
+import { FolderTreeIcon, PlusIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,12 @@ import { VincularAsaas } from "@/components/financeiro/vincular-asaas";
 import { ContaReceberClicavel } from "@/components/financeiro/detalhe-conta-receber";
 import { configAsaas } from "@/lib/asaas";
 import { listarBancosUsados, listarLancamentos } from "@/server/financeiro";
+import { listarClassesDespesa } from "@/server/classes-despesa";
 import {
   BANCOS_SUGERIDOS,
   ID_LISTA_BANCOS,
   calcularResumo,
+  classeDoLancamento,
   estaVencido,
   rotuloDocumento,
 } from "@/lib/financeiro";
@@ -30,7 +32,7 @@ import { formatarDataHoraSegundos, formatarDataISO, hojeISO } from "@/lib/dateti
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { ROTULOS_CATEGORIA_CUSTO, ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
-import type { Lancamento } from "@/lib/types";
+import type { ClasseDespesa, Lancamento } from "@/lib/types";
 
 const FILTROS_TIPO = [
   { valor: "", label: "Todos" },
@@ -59,7 +61,11 @@ export default async function FinanceiroPage({
   const busca = lerBusca(params);
 
   const hoje = hojeISO();
-  const [todos, bancosUsados] = await Promise.all([listarLancamentos(), listarBancosUsados()]);
+  const [todos, bancosUsados, classes] = await Promise.all([
+    listarLancamentos(),
+    listarBancosUsados(),
+    listarClassesDespesa(),
+  ]);
   const resumo = calcularResumo(todos, hoje);
   const asaasConfigurado = configAsaas() !== null;
 
@@ -111,6 +117,17 @@ export default async function FinanceiroPage({
         acoes={
           <>
             {tipo === "RECEBER" && asaasConfigurado && <VincularAsaas />}
+            {tipo === "PAGAR" && (
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={
+                  <Link href="/financeiro/classes">
+                    <FolderTreeIcon /> Classes de despesa
+                  </Link>
+                }
+              />
+            )}
             <Button
               nativeButton={false}
               render={
@@ -240,6 +257,27 @@ export default async function FinanceiroPage({
         <CampoFiltro rotulo="até (R$)">
           <Input type="number" name="valorMax" min="0" step="0.01" inputMode="decimal" defaultValue={busca.valorMax} />
         </CampoFiltro>
+        {tipo !== "RECEBER" && classes.length > 0 && (
+          <CampoFiltro rotulo="Classe da despesa" className="col-span-2 sm:col-span-3 lg:col-span-2">
+            <select
+              name="classe"
+              defaultValue={busca.classe}
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+            >
+              <option value="">Todas</option>
+              {classes.map((c) => (
+                <optgroup key={c.id} label={c.nome}>
+                  <option value={c.id}>{c.nome} (todas)</option>
+                  {c.subclasses.map((s) => (
+                    <option key={s.id} value={`${c.id}:${s.id}`}>
+                      {s.nome}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </CampoFiltro>
+        )}
         <div className="col-span-2 flex items-center justify-end gap-2 sm:col-span-3 lg:col-span-6">
           {CAMPOS_BUSCA.some((c) => busca[c]) && (
             <Button
@@ -263,7 +301,7 @@ export default async function FinanceiroPage({
           </p>
         )}
         {lista.map((l) => (
-          <CartaoLancamento key={l.id} lancamento={l} hoje={hoje} mostrarPagamento={status === "pagos"} />
+          <CartaoLancamento key={l.id} lancamento={l} hoje={hoje} mostrarPagamento={status === "pagos"} classes={classes} />
         ))}
       </div>
 
@@ -292,7 +330,7 @@ export default async function FinanceiroPage({
               </TableRow>
             )}
             {lista.map((l) => (
-              <LinhaLancamento key={l.id} lancamento={l} hoje={hoje} mostrarPagamento={status === "pagos"} />
+              <LinhaLancamento key={l.id} lancamento={l} hoje={hoje} mostrarPagamento={status === "pagos"} classes={classes} />
             ))}
           </TableBody>
         </Table>
@@ -324,10 +362,12 @@ function LinhaLancamento({
   lancamento: l,
   hoje,
   mostrarPagamento,
+  classes,
 }: {
   lancamento: Lancamento;
   hoje: string;
   mostrarPagamento: boolean;
+  classes: ClasseDespesa[];
 }) {
   const documento = rotuloDocumento(l.numeroDocumento, l.parcela, l.totalParcelas);
   const aReceber = l.tipo === "RECEBER";
@@ -357,6 +397,7 @@ function LinhaLancamento({
         {!aReceber && l.categoria && l.fornecedorNome && (
           <span className="ml-1.5 text-xs text-muted-foreground">({rotuloCategoria(l)})</span>
         )}
+        {!aReceber && <RotuloClasse texto={classeDoLancamento(l, classes)} />}
         {!aReceber && l.clienteNome && (
           <span className="block text-xs text-muted-foreground">Cliente: {l.clienteNome}</span>
         )}
@@ -409,10 +450,12 @@ function CartaoLancamento({
   lancamento: l,
   hoje,
   mostrarPagamento,
+  classes,
 }: {
   lancamento: Lancamento;
   hoje: string;
   mostrarPagamento: boolean;
+  classes: ClasseDespesa[];
 }) {
   const documento = rotuloDocumento(l.numeroDocumento, l.parcela, l.totalParcelas);
   const aReceber = l.tipo === "RECEBER";
@@ -442,6 +485,7 @@ function CartaoLancamento({
             {nome}
             {categoria && <span className="ml-1 text-xs font-normal text-muted-foreground">({categoria})</span>}
           </p>
+          {!aReceber && <RotuloClasse texto={classeDoLancamento(l, classes)} />}
           {!aReceber && l.clienteNome && <p className="text-xs text-muted-foreground">Cliente: {l.clienteNome}</p>}
         </div>
         <span className={`shrink-0 font-semibold tabular-nums ${aReceber ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
@@ -475,7 +519,7 @@ function CartaoLancamento({
 // Busca por nome, período e valor
 // ---------------------------------------------------------------------------
 
-const CAMPOS_BUSCA = ["nome", "de", "ate", "valorMin", "valorMax"] as const;
+const CAMPOS_BUSCA = ["nome", "de", "ate", "valorMin", "valorMax", "classe"] as const;
 type CampoBusca = (typeof CAMPOS_BUSCA)[number];
 type Busca = Record<CampoBusca, string>;
 
@@ -488,6 +532,8 @@ function lerBusca(params: Partial<Record<CampoBusca, string>>): Busca {
     ate: data(params.ate),
     valorMin: numero(params.valorMin),
     valorMax: numero(params.valorMax),
+    // "classeId" ou "classeId:subclasseId".
+    classe: params.classe?.trim() ?? "",
   };
 }
 
@@ -500,7 +546,9 @@ function normalizar(texto: string): string {
 function atendeBusca(l: Lancamento, b: Busca, porPagamento: boolean): boolean {
   if (b.nome) {
     const alvo = normalizar(
-      [nomeLancamento(l), l.clienteNome, l.fornecedorNome, l.descricao, l.numeroDocumento].filter(Boolean).join(" ")
+      [nomeLancamento(l), l.clienteNome, l.fornecedorNome, l.descricao, l.numeroDocumento, l.classeNome, l.subclasseNome]
+        .filter(Boolean)
+        .join(" ")
     );
     if (!alvo.includes(normalizar(b.nome))) return false;
   }
@@ -509,6 +557,10 @@ function atendeBusca(l: Lancamento, b: Busca, porPagamento: boolean): boolean {
   if (b.ate && (!data || data > b.ate)) return false;
   if (b.valorMin && l.valor < Number(b.valorMin)) return false;
   if (b.valorMax && l.valor > Number(b.valorMax)) return false;
+  if (b.classe) {
+    const [classeId, subclasseId] = b.classe.split(":");
+    if (l.classeId !== classeId || (subclasseId && l.subclasseId !== subclasseId)) return false;
+  }
   return true;
 }
 
@@ -545,6 +597,15 @@ function BotaoFiltro({ href, ativo, children }: { href: string; ativo: boolean; 
     >
       {children}
     </Link>
+  );
+}
+
+/** Classe › subclasse da despesa; conta a pagar antiga sem classe ganha um aviso. */
+function RotuloClasse({ texto }: { texto: string }) {
+  return texto ? (
+    <span className="block text-xs font-medium text-indigo-700 dark:text-indigo-300">{texto}</span>
+  ) : (
+    <span className="block text-xs text-amber-600 dark:text-amber-400">Sem classe</span>
   );
 }
 

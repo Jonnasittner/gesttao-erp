@@ -263,6 +263,9 @@ export const lancamentoSchema = z
     numeroPedidoFornecedor: textoMaiusculoOpcional,
     /** Só em lançamentos a pagar. */
     categoria: z.enum(CATEGORIA_CUSTO).optional(),
+    /** Plano de contas (só a pagar): ids de classesDespesa e da subclasse dentro dela. */
+    classeId: z.string().optional().or(z.literal("")),
+    subclasseId: z.string().optional().or(z.literal("")),
     formaPagamento: z.enum(FORMA_PAGAMENTO, { error: "Selecione a forma de pagamento" }),
     valor: z.coerce.number().positive("Informe um valor maior que zero"),
     descricao: textoMaiusculoOpcional,
@@ -279,12 +282,41 @@ export const lancamentoSchema = z
     if (dados.tipo === "PAGAR" && (dados.categoria ?? "MERCADORIA") === "MERCADORIA" && !dados.fornecedorId) {
       ctx.addIssue({ code: "custom", path: ["fornecedorId"], message: "Selecione o fornecedor" });
     }
+    if (dados.tipo === "PAGAR" && !dados.classeId) {
+      ctx.addIssue({ code: "custom", path: ["classeId"], message: "Escolha a classe da despesa" });
+    }
+    if (dados.tipo === "PAGAR" && !dados.subclasseId) {
+      ctx.addIssue({ code: "custom", path: ["subclasseId"], message: "Escolha a subclasse da despesa" });
+    }
     const soma = dados.parcelas.reduce((total, p) => total + p.valor, 0);
     if (Math.abs(soma - dados.valor) > 0.009) {
       ctx.addIssue({ code: "custom", path: ["parcelas"], message: "A soma das parcelas não bate com o valor total" });
     }
   });
 export type LancamentoInput = z.infer<typeof lancamentoSchema>;
+
+/** Subclasse dentro de uma classe de despesa (ex.: ALUGUEL em ADMINISTRATIVO). */
+export interface SubclasseDespesa {
+  id: string;
+  nome: string;
+  /** Inativa: some das opções de lançamentos novos, mas continua nos antigos. */
+  ativa: boolean;
+}
+
+/** Classe do plano de contas das despesas (coleção "classesDespesa"). */
+export interface ClasseDespesa {
+  id: string;
+  nome: string;
+  ativa: boolean;
+  subclasses: SubclasseDespesa[];
+}
+
+export const nomeClasseSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe o nome")
+  .max(60, "Nome muito longo")
+  .transform((s) => s.toUpperCase());
 
 export type AmbienteAsaas = "sandbox" | "producao";
 
@@ -334,6 +366,15 @@ export interface Lancamento {
   numeroPedidoFornecedor: string;
   /** Tipo de custo (a pagar); "" em lançamentos a receber. */
   categoria: CategoriaCusto | "";
+  /**
+   * Classe e subclasse da despesa (a pagar). Os nomes são os do momento em
+   * que foi salvo; a tela mostra o nome atual da classe quando ela existe.
+   * "" em lançamentos a receber e nos a pagar antigos ainda sem classe.
+   */
+  classeId: string;
+  classeNome: string;
+  subclasseId: string;
+  subclasseNome: string;
   formaPagamento: FormaPagamento;
   /** Valor desta parcela. */
   valor: number;
@@ -376,6 +417,8 @@ export interface JustificativaMovimentacao {
   modo: ModoJustificativa;
   texto: string;
   categoria: CategoriaCusto | "";
+  /** "LOGÍSTICA › TRANSPORTADORA" do gasto lançado (LANCADA). */
+  classe: string;
   /** Lançamento ligado (VINCULADA, LANCADA e cobranças automáticas). */
   lancamentoId: string;
   /** "0020" ou "0020-1/3", para mostrar sem reler o lançamento. */

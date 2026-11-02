@@ -29,19 +29,33 @@ import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO } from "@/lib/datetime";
 import { ROTULOS_CATEGORIA_CUSTO } from "@/lib/rotulos";
 import { cn } from "@/lib/utils";
-import type { CategoriaCusto, MovimentacaoAsaas } from "@/lib/types";
+import type { CategoriaCusto, ClasseDespesa, MovimentacaoAsaas } from "@/lib/types";
 
 /** Mercadoria fica de fora: pagamento a fornecedor vincula à conta a pagar dele. */
 const CATEGORIAS_GASTO: CategoriaCusto[] = ["FRETE", "INSTALACAO", "COMISSAO", "OUTROS"];
 
 type Modo = PedidoJustificativa["modo"];
 
-export function JustificarMovimentacao({ movimentacao: m, resumo }: { movimentacao: MovimentacaoAsaas; resumo: string }) {
+const CLASSE_SELECT =
+  "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30";
+
+export function JustificarMovimentacao({
+  movimentacao: m,
+  resumo,
+  classes,
+}: {
+  movimentacao: MovimentacaoAsaas;
+  resumo: string;
+  /** Classes de despesa ativas, para o "Lançar gasto". */
+  classes: ClasseDespesa[];
+}) {
   const router = useRouter();
   const saida = m.valor < 0;
   const [aberto, setAberto] = useState(false);
   const [modo, setModo] = useState<Modo>(saida ? "LANCADA" : "VINCULADA");
   const [categoria, setCategoria] = useState<CategoriaCusto | "">("");
+  const [classeId, setClasseId] = useState("");
+  const [subclasseId, setSubclasseId] = useState("");
   const [texto, setTexto] = useState("");
   const [pedidoNumero, setPedidoNumero] = useState("");
   const [contas, setContas] = useState<ContaParaVincular[] | null>(null);
@@ -53,6 +67,8 @@ export function JustificarMovimentacao({ movimentacao: m, resumo }: { movimentac
   function abrir() {
     setModo(saida ? "LANCADA" : "VINCULADA");
     setCategoria("");
+    setClasseId("");
+    setSubclasseId("");
     setTexto("");
     setPedidoNumero("");
     setContaId("");
@@ -86,8 +102,9 @@ export function JustificarMovimentacao({ movimentacao: m, resumo }: { movimentac
       pedido = { modo, lancamentoId: contaId, texto };
     } else if (modo === "LANCADA") {
       if (!categoria) return toast.error("Escolha o tipo do gasto.");
+      if (!classeId || !subclasseId) return toast.error("Escolha a classe e a subclasse da despesa.");
       const numero = Number(pedidoNumero.replace(/\D/g, ""));
-      pedido = { modo, categoria, texto, pedidoNumero: numero || undefined };
+      pedido = { modo, categoria, classeId, subclasseId, texto, pedidoNumero: numero || undefined };
     } else {
       if (!texto.trim()) return toast.error("Escreva o que foi esta movimentação.");
       pedido = { modo, texto };
@@ -178,6 +195,45 @@ export function JustificarMovimentacao({ movimentacao: m, resumo }: { movimentac
                     Vira um lançamento em Contas a pagar, já pago pelo Asaas. Pagamento de mercadoria a fornecedor: use
                     &quot;Conta a pagar&quot;.
                   </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`classe-${m.id}`}>Classe da despesa</Label>
+                    <select
+                      id={`classe-${m.id}`}
+                      value={classeId}
+                      onChange={(e) => {
+                        const subs = classes.find((c) => c.id === e.target.value)?.subclasses ?? [];
+                        setClasseId(e.target.value);
+                        setSubclasseId(subs.length === 1 ? subs[0].id : "");
+                      }}
+                      className={CLASSE_SELECT}
+                    >
+                      <option value="">{classes.length ? "Escolha" : "Nenhuma classe cadastrada"}</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`subclasse-${m.id}`}>Subclasse</Label>
+                    <select
+                      id={`subclasse-${m.id}`}
+                      value={subclasseId}
+                      onChange={(e) => setSubclasseId(e.target.value)}
+                      disabled={!classeId}
+                      className={CLASSE_SELECT}
+                    >
+                      <option value="">{classeId ? "Escolha" : "Escolha a classe antes"}</option>
+                      {(classes.find((c) => c.id === classeId)?.subclasses ?? []).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor={`pedido-${m.id}`}>Pedido (opcional)</Label>

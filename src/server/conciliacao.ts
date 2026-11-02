@@ -6,7 +6,8 @@ import { db } from "@/lib/firebase-admin";
 import { comResultado } from "@/lib/resultado";
 import { proximoNumero } from "@/lib/contador";
 import { configAsaas } from "@/lib/asaas";
-import { rotuloDocumento } from "@/lib/financeiro";
+import { rotuloClasse, rotuloDocumento } from "@/lib/financeiro";
+import { camposDaClasse } from "@/lib/classes-despesa";
 import { formatarCodigo } from "@/lib/codigo";
 import {
   LINK_CONCILIACAO,
@@ -48,6 +49,7 @@ function toMovimentacao(doc: FirebaseFirestore.DocumentSnapshot): MovimentacaoAs
           modo: j.modo,
           texto: j.texto ?? "",
           categoria: j.categoria ?? "",
+          classe: j.classe ?? "",
           lancamentoId: j.lancamentoId ?? "",
           documento: j.documento ?? "",
           marcouPago: !!j.marcouPago,
@@ -142,7 +144,14 @@ export async function listarContasParaVincular(movimentacaoId: string) {
 
 export type PedidoJustificativa =
   | { modo: "VINCULADA"; lancamentoId: string; texto?: string }
-  | { modo: "LANCADA"; categoria: CategoriaCusto; texto: string; pedidoNumero?: number }
+  | {
+      modo: "LANCADA";
+      categoria: CategoriaCusto;
+      classeId: string;
+      subclasseId: string;
+      texto: string;
+      pedidoNumero?: number;
+    }
   | { modo: "TEXTO"; texto: string };
 
 /** Formas de pagamento do lançamento criado a partir da movimentação. */
@@ -165,9 +174,14 @@ export async function justificarMovimentacao(movimentacaoId: string, pedido: Ped
     }
 
     // Lançamento novo: número e pedido antes da transação (o contador tem a sua).
-    let novoLancamento: { id: string; numeroDocumento: number; pedido: FirebaseFirestore.DocumentSnapshot | null } | null =
-      null;
+    let novoLancamento: {
+      id: string;
+      numeroDocumento: number;
+      pedido: FirebaseFirestore.DocumentSnapshot | null;
+      classe: Awaited<ReturnType<typeof camposDaClasse>>;
+    } | null = null;
     if (pedido.modo === "LANCADA") {
+      const classe = await camposDaClasse(pedido.classeId, pedido.subclasseId);
       let pedidoDoc: FirebaseFirestore.DocumentSnapshot | null = null;
       if (pedido.pedidoNumero) {
         const snap = await db.collection("pedidos").where("numero", "==", pedido.pedidoNumero).limit(1).get();
@@ -182,6 +196,7 @@ export async function justificarMovimentacao(movimentacaoId: string, pedido: Ped
         id: db.collection("lancamentos").doc().id,
         numeroDocumento: await proximoNumero("financeiro_documento"),
         pedido: pedidoDoc,
+        classe,
       };
     }
 
@@ -197,6 +212,7 @@ export async function justificarMovimentacao(movimentacaoId: string, pedido: Ped
         modo: pedido.modo,
         texto,
         categoria: "",
+        classe: "",
         lancamentoId: "",
         documento: "",
         marcouPago: false,
@@ -226,6 +242,7 @@ export async function justificarMovimentacao(movimentacaoId: string, pedido: Ped
       if (pedido.modo === "LANCADA" && novoLancamento) {
         const p = novoLancamento.pedido?.data();
         justificativa.categoria = pedido.categoria;
+        justificativa.classe = rotuloClasse(novoLancamento.classe.classeNome, novoLancamento.classe.subclasseNome);
         justificativa.lancamentoId = novoLancamento.id;
         justificativa.documento = rotuloDocumento(novoLancamento.numeroDocumento, 1, 1);
         const quem = m.contraparte ? `${m.contraparte}` : rotuloTipoMovimentacao(m.tipo).toUpperCase();
@@ -237,6 +254,7 @@ export async function justificarMovimentacao(movimentacaoId: string, pedido: Ped
           valor,
           valorTotal: valor,
           categoria: pedido.categoria,
+          ...novoLancamento.classe,
           formaPagamento: formaDaMovimentacao(m.tipo ?? ""),
           clienteId: p?.cadastroId ?? "",
           clienteNome: p?.cadastroNome ?? "",

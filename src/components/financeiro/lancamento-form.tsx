@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowDownCircle, ArrowUpCircle } from "lucide-react";
@@ -31,6 +32,7 @@ import {
   FORMA_PAGAMENTO,
   MAX_PARCELAS,
   type CategoriaCusto,
+  type ClasseDespesa,
   lancamentoSchema,
   type FormaPagamento,
   type Lancamento,
@@ -56,6 +58,8 @@ interface LancamentoFormProps {
   fornecedores: CadastroOpcao[];
   pedidos: PedidoOpcao[];
   bancosUsados: string[];
+  /** Plano de contas das despesas (todas; as inativas só aparecem se já escolhidas). */
+  classes: ClasseDespesa[];
   /** Presente = edição (todas as parcelas do documento, em ordem). */
   parcelasSalvas?: Lancamento[];
   /** Lançamento aberto a partir de um pedido (cliente, pedido e tipo ficam travados). */
@@ -131,6 +135,7 @@ export function LancamentoForm({
   fornecedores,
   pedidos,
   bancosUsados,
+  classes,
   parcelasSalvas,
   vinculo,
   voltarPara: voltarEdicao,
@@ -144,6 +149,8 @@ export function LancamentoForm({
   const [categoria, setCategoria] = useState<CategoriaCusto>(
     base?.categoria || vinculo?.categoria || "MERCADORIA"
   );
+  const [classeId, setClasseId] = useState(base?.classeId ?? "");
+  const [subclasseId, setSubclasseId] = useState(base?.subclasseId ?? "");
   const clienteIdInicial = vinculo?.clienteId ?? base?.clienteId;
   const [cliente, setCliente] = useState<CadastroOpcao | null>(
     () =>
@@ -176,6 +183,18 @@ export function LancamentoForm({
   );
   const sugestoesBanco = useMemo(() => [...new Set([...bancosUsados, ...BANCOS_SUGERIDOS])], [bancosUsados]);
   const somaParcelas = parcelas.reduce((soma, p) => soma + p.valor, 0);
+  // Inativas ficam de fora, menos a que o lançamento já usa.
+  const classesOpcoes = classes.filter((c) => c.ativa || c.id === base?.classeId);
+  const subclassesOpcoes = (classes.find((c) => c.id === classeId)?.subclasses ?? []).filter(
+    (s) => s.ativa || s.id === base?.subclasseId
+  );
+
+  function escolherClasse(novo: string) {
+    setClasseId(novo);
+    const subs = classes.find((c) => c.id === novo)?.subclasses.filter((s) => s.ativa) ?? [];
+    // Uma subclasse só: já escolhe; senão, obriga a escolher de novo.
+    setSubclasseId(subs.length === 1 ? subs[0].id : "");
+  }
 
   function escolherCliente(novo: CadastroOpcao | null) {
     setCliente(novo);
@@ -244,6 +263,8 @@ export function LancamentoForm({
       pedidoId: pedido?.value ?? "",
       fornecedorId: aReceber ? "" : fornecedor?.value ?? "",
       categoria: aReceber ? undefined : categoria,
+      classeId: aReceber ? "" : classeId,
+      subclasseId: aReceber ? "" : subclasseId,
       numeroPedidoFornecedor,
       formaPagamento: formaPagamento ?? undefined,
       valor,
@@ -361,6 +382,53 @@ export function LancamentoForm({
               placeholder="Buscar fornecedor..."
               vazio="Nenhum fornecedor cadastrado com esse nome."
             />
+          </Campo>
+          <Campo label="Classe da despesa">
+            <Select
+              value={classeId || null}
+              items={Object.fromEntries(classesOpcoes.map((c) => [c.id, c.nome]))}
+              onValueChange={(v) => v && escolherClasse(v as string)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={classesOpcoes.length ? "Escolha a classe" : "Nenhuma classe cadastrada"} />
+              </SelectTrigger>
+              <SelectContent>
+                {classesOpcoes.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Campo>
+          <Campo label="Subclasse">
+            <div className="flex items-center gap-2">
+              <Select
+                value={subclasseId || null}
+                items={Object.fromEntries(subclassesOpcoes.map((s) => [s.id, s.nome]))}
+                onValueChange={(v) => v && setSubclasseId(v as string)}
+                disabled={!classeId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={classeId ? "Escolha a subclasse" : "Escolha a classe antes"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {subclassesOpcoes.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Link
+                href="/financeiro/classes"
+                target="_blank"
+                className="shrink-0 text-xs text-primary hover:underline"
+                title="Abre o cadastro de classes em outra aba"
+              >
+                Gerenciar
+              </Link>
+            </div>
           </Campo>
         </div>
       )}

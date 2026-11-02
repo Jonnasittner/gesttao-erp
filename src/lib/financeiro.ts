@@ -3,7 +3,7 @@
 
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
-import type { CategoriaCusto, ItemPedidoInput, Lancamento } from "@/lib/types";
+import type { CategoriaCusto, ClasseDespesa, ItemPedidoInput, Lancamento } from "@/lib/types";
 
 /** Rótulo do pedido no seletor: "Pedido 0012 · R$ 1.200,00". */
 export function rotuloPedido(numero: number, status: string, total: number): string {
@@ -92,6 +92,22 @@ export function somarMeses(dataISO: string, meses: number): string {
 export function rotuloDocumento(numeroDocumento: number, parcela: number, totalParcelas: number): string {
   const documento = formatarCodigo(numeroDocumento);
   return totalParcelas > 1 ? `${documento} · ${parcela}/${totalParcelas}` : documento;
+}
+
+/** "LOGÍSTICA › TRANSPORTADORA". */
+export function rotuloClasse(classeNome: string, subclasseNome: string): string {
+  return [classeNome, subclasseNome].filter(Boolean).join(" › ");
+}
+
+/**
+ * Classe/subclasse do lançamento com o nome atual do cadastro (renomear a
+ * classe vale para os lançamentos antigos); sem cadastro, o nome gravado.
+ */
+export function classeDoLancamento(l: Lancamento, classes: ClasseDespesa[]): string {
+  if (!l.classeId) return "";
+  const classe = classes.find((c) => c.id === l.classeId);
+  const sub = classe?.subclasses.find((s) => s.id === l.subclasseId);
+  return rotuloClasse(classe?.nome ?? l.classeNome, sub?.nome ?? l.subclasseNome);
 }
 
 /** Id do <datalist> com as sugestões de banco (um por página). */

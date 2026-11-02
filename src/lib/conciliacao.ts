@@ -208,7 +208,7 @@ function justificativaAutomatica(
   item: TransacaoAsaas,
   cobranca: CobrancaDoLancamento | undefined
 ): Omit<JustificativaMovimentacao, "em"> | null {
-  const base = { categoria: "" as const, marcouPago: false, usuarioNome: null };
+  const base = { categoria: "" as const, classe: "", marcouPago: false, usuarioNome: null };
   if (cobranca) {
     const assunto = ehTaxaAsaas(item.type) ? "Taxa da cobrança" : rotuloTipoMovimentacao(item.type);
     return {

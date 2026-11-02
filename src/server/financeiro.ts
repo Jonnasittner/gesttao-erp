@@ -9,6 +9,7 @@ import { buscarPedido, converterEmPedido } from "@/server/pedidos";
 import { buscarCadastro } from "@/server/cadastros";
 import { comResultado } from "@/lib/resultado";
 import { atualizarCobrancaAsaas, cancelarCobrancaAsaas, marcarRecebimentoManualAsaas } from "@/lib/asaas";
+import { camposDaClasse } from "@/lib/classes-despesa";
 import {
   type Lancamento,
   type LancamentoInput,
@@ -47,6 +48,10 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
     numeroPedidoFornecedor: data.numeroPedidoFornecedor ?? "",
     // Lançamentos a pagar antigos (sem categoria) eram sempre de fornecedor.
     categoria: data.tipo === "PAGAR" ? data.categoria ?? "MERCADORIA" : "",
+    classeId: data.classeId ?? "",
+    classeNome: data.classeNome ?? "",
+    subclasseId: data.subclasseId ?? "",
+    subclasseNome: data.subclasseNome ?? "",
     formaPagamento: data.formaPagamento,
     valor: data.valor ?? 0,
     vencimento: data.vencimento ?? "",
@@ -75,10 +80,13 @@ async function validarEMontar(input: LancamentoInput) {
   const fornecedorId = aPagar ? dados.fornecedorId || "" : "";
   const pedidoId = clienteId ? dados.pedidoId || "" : "";
 
-  const [cliente, fornecedor, pedido] = await Promise.all([
+  const [cliente, fornecedor, pedido, classe] = await Promise.all([
     clienteId ? db.collection("cadastros").doc(clienteId).get() : null,
     fornecedorId ? db.collection("cadastros").doc(fornecedorId).get() : null,
     pedidoId ? db.collection("pedidos").doc(pedidoId).get() : null,
+    aPagar
+      ? camposDaClasse(dados.classeId ?? "", dados.subclasseId ?? "")
+      : { classeId: "", classeNome: "", subclasseId: "", subclasseNome: "" },
   ]);
 
   if (clienteId && !cliente?.exists) throw new Error("Cliente não encontrado.");
@@ -100,6 +108,7 @@ async function validarEMontar(input: LancamentoInput) {
     fornecedorNome: fornecedor?.data()?.nome ?? "",
     numeroPedidoFornecedor: dados.numeroPedidoFornecedor ?? "",
     categoria: aPagar ? dados.categoria ?? "MERCADORIA" : "",
+    ...classe,
     formaPagamento: dados.formaPagamento,
     descricao: dados.descricao ?? "",
     valorTotal: Math.round(dados.valor * 100) / 100,

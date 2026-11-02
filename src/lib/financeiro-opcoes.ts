@@ -1,7 +1,9 @@
 import { listarCadastros } from "@/server/cadastros";
 import { listarPedidos } from "@/server/pedidos";
 import { listarBancosUsados } from "@/server/financeiro";
+import { listarClassesDespesa } from "@/server/classes-despesa";
 import { rotuloPedido } from "@/lib/financeiro";
+import type { ClasseDespesa } from "@/lib/types";
 import type { CadastroOpcao, PedidoOpcao } from "@/components/financeiro/lancamento-form";
 
 /** Listas dos seletores do formulário de lançamento (só no servidor). */
@@ -10,12 +12,14 @@ export async function carregarOpcoesLancamento(): Promise<{
   fornecedores: CadastroOpcao[];
   pedidos: PedidoOpcao[];
   bancosUsados: string[];
+  classes: ClasseDespesa[];
 }> {
-  const [clientes, fornecedores, pedidos, bancosUsados] = await Promise.all([
+  const [clientes, fornecedores, pedidos, bancosUsados, classes] = await Promise.all([
     listarCadastros("CLIENTE"),
     listarCadastros("FORNECEDOR"),
     listarPedidos(),
     listarBancosUsados(),
+    listarClassesDespesa(),
   ]);
 
   const porNome = (a: CadastroOpcao, b: CadastroOpcao) => a.label.localeCompare(b.label);
@@ -30,5 +34,6 @@ export async function carregarOpcoesLancamento(): Promise<{
       total: p.total,
     })),
     bancosUsados,
+    classes,
   };
 }
