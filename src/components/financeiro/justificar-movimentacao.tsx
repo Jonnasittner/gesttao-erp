@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckIcon, Loader2, RefreshCwIcon, SearchIcon, Undo2Icon } from "lucide-react";
+import { CameraIcon, CheckIcon, Loader2, RefreshCwIcon, SearchIcon, Undo2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,12 +27,13 @@ import {
 import { desembrulhar } from "@/lib/resultado";
 import { formatarMoeda } from "@/lib/moeda";
 import { formatarDataISO } from "@/lib/datetime";
-import { ROTULOS_CATEGORIA_CUSTO } from "@/lib/rotulos";
+import { comprimirImagem } from "@/lib/comprimir-imagem";
+import { type CadastroOpcao, SeletorCadastro } from "@/components/financeiro/lancamento-form";
 import { cn } from "@/lib/utils";
 import type { CategoriaCusto, ClasseDespesa, MovimentacaoAsaas } from "@/lib/types";
 
-/** Mercadoria fica de fora: pagamento a fornecedor vincula à conta a pagar dele. */
-const CATEGORIAS_GASTO: CategoriaCusto[] = ["FRETE", "INSTALACAO", "COMISSAO", "OUTROS"];
+/** O gasto lançado é classificado pela classe/subclasse; a categoria de custo fica genérica. */
+const CATEGORIA_GASTO: CategoriaCusto = "OUTROS";
 
 type Modo = PedidoJustificativa["modo"];
 
@@ -43,9 +44,12 @@ export function JustificarMovimentacao({
   movimentacao: m,
   resumo,
   classes,
+  fornecedores,
 }: {
   movimentacao: MovimentacaoAsaas;
   resumo: string;
+  /** Fornecedores cadastrados, para o "Lançar gasto". */
+  fornecedores: CadastroOpcao[];
   /** Classes de despesa ativas, para o "Lançar gasto". */
   classes: ClasseDespesa[];
 }) {
@@ -53,25 +57,28 @@ export function JustificarMovimentacao({
   const saida = m.valor < 0;
   const [aberto, setAberto] = useState(false);
   const [modo, setModo] = useState<Modo>(saida ? "LANCADA" : "VINCULADA");
-  const [categoria, setCategoria] = useState<CategoriaCusto | "">("");
+  const [fornecedor, setFornecedor] = useState<CadastroOpcao | null>(null);
   const [classeId, setClasseId] = useState("");
   const [subclasseId, setSubclasseId] = useState("");
   const [texto, setTexto] = useState("");
   const [pedidoNumero, setPedidoNumero] = useState("");
   const [contas, setContas] = useState<ContaParaVincular[] | null>(null);
   const [contaId, setContaId] = useState("");
+  const [cupom, setCupom] = useState<File | null>(null);
+  const [arrastando, setArrastando] = useState(false);
   const [busca, setBusca] = useState("");
   const [carregandoContas, startContas] = useTransition();
   const [salvando, startSalvar] = useTransition();
 
   function abrir() {
     setModo(saida ? "LANCADA" : "VINCULADA");
-    setCategoria("");
+    setFornecedor(null);
     setClasseId("");
     setSubclasseId("");
     setTexto("");
     setPedidoNumero("");
     setContaId("");
+    setCupom(null);
     setBusca("");
     setAberto(true);
     if (!saida) carregarContas();
@@ -89,6 +96,16 @@ export function JustificarMovimentacao({
     });
   }
 
+  /** Vale para o arquivo escolhido e para o arrastado: só foto ou PDF. */
+  function escolherCupom(arquivo: File | undefined) {
+    if (!arquivo) return;
+    if (!arquivo.type.startsWith("image/") && arquivo.type !== "application/pdf") {
+      toast.error("O cupom precisa ser uma foto ou um PDF.");
+      return;
+    }
+    setCupom(arquivo);
+  }
+
   function trocarModo(novo: Modo) {
     setModo(novo);
     if (novo === "VINCULADA") carregarContas();
@@ -101,17 +118,24 @@ export function JustificarMovimentacao({
       if (!contaId) return toast.error(`Escolha a conta a ${saida ? "pagar" : "receber"}.`);
       pedido = { modo, lancamentoId: contaId, texto };
     } else if (modo === "LANCADA") {
-      if (!categoria) return toast.error("Escolha o tipo do gasto.");
+      if (!fornecedor) return toast.error("Escolha o fornecedor.");
       if (!classeId || !subclasseId) return toast.error("Escolha a classe e a subclasse da despesa.");
       const numero = Number(pedidoNumero.replace(/\D/g, ""));
-      pedido = { modo, categoria, classeId, subclasseId, texto, pedidoNumero: numero || undefined };
+      pedido = { modo, categoria: CATEGORIA_GASTO, fornecedorId: fornecedor.value, classeId, subclasseId, texto, pedidoNumero: numero || undefined };
     } else {
       if (!texto.trim()) return toast.error("Escreva o que foi esta movimentação.");
       pedido = { modo, texto };
     }
     startSalvar(async () => {
       try {
-        desembrulhar(await justificarMovimentacao(m.id, pedido));
+        let formData: FormData | undefined;
+        if (cupom) {
+          formData = new FormData();
+          // Foto de celular chega com vários MB: reduz antes de enviar (PDF vai como está).
+          const arquivo = cupom.type.startsWith("image/") ? await comprimirImagem(cupom).catch(() => cupom) : cupom;
+          formData.set("comprovante", arquivo);
+        }
+        desembrulhar(await justificarMovimentacao(m.id, pedido, formData));
         toast.success("Movimentação justificada.");
         setAberto(false);
         router.refresh();
@@ -172,29 +196,19 @@ export function JustificarMovimentacao({
 
             {modo === "LANCADA" && (
               <>
+                <p className="text-xs text-muted-foreground">
+                  Vira um lançamento em Contas a pagar, já pago pelo Asaas. Pagamento de mercadoria a fornecedor: use
+                  &quot;Conta a pagar&quot;.
+                </p>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Foi gasto com</Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CATEGORIAS_GASTO.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setCategoria(c)}
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-sm transition-colors",
-                          categoria === c
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "hover:bg-muted"
-                        )}
-                      >
-                        {ROTULOS_CATEGORIA_CUSTO[c]}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Vira um lançamento em Contas a pagar, já pago pelo Asaas. Pagamento de mercadoria a fornecedor: use
-                    &quot;Conta a pagar&quot;.
-                  </p>
+                  <Label>Fornecedor</Label>
+                  <SeletorCadastro
+                    opcoes={fornecedores}
+                    valor={fornecedor}
+                    onChange={setFornecedor}
+                    placeholder="Buscar fornecedor..."
+                    vazio="Nenhum fornecedor cadastrado com esse nome. Cadastre em Cadastros."
+                  />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
@@ -301,6 +315,70 @@ export function JustificarMovimentacao({
                 <p className="text-xs text-muted-foreground">A conta escolhida recebe a baixa com a data da movimentação.</p>
               </div>
             )}
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`cupom-${m.id}`}>Foto do cupom (opcional)</Label>
+              <div
+                onDragOver={(e) => {
+                  if (!e.dataTransfer.types.includes("Files")) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "copy";
+                  setArrastando(true);
+                }}
+                onDragLeave={(e) => {
+                  // Só sai do destaque quando o arraste deixa a área inteira, não um filho dela.
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setArrastando(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setArrastando(false);
+                  escolherCupom(e.dataTransfer.files?.[0]);
+                }}
+              >
+                {cupom ? (
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                      arrastando && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <CameraIcon className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{cupom.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setCupom(null)}
+                      aria-label="Tirar o cupom"
+                      title="Tirar o cupom"
+                    >
+                      <XIcon />
+                    </Button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor={`cupom-${m.id}`}
+                    className={cn(
+                      "flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                      arrastando && "border-primary bg-primary/5 text-foreground"
+                    )}
+                  >
+                    <CameraIcon className="size-4" />
+                    {arrastando ? "Solte a foto aqui" : "Arraste a foto aqui, tire uma foto ou escolha o arquivo"}
+                  </label>
+                )}
+              </div>
+              <input
+                id={`cupom-${m.id}`}
+                type="file"
+                accept="image/*,application/pdf"
+                className="sr-only"
+                onChange={(e) => {
+                  escolherCupom(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </div>
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`texto-${m.id}`}>{modo === "TEXTO" ? "O que foi" : "Observação (opcional)"}</Label>

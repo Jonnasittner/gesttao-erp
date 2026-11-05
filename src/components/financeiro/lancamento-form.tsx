@@ -663,7 +663,7 @@ function Campo({ label, htmlFor, children }: { label: string; htmlFor?: string; 
   );
 }
 
-function SeletorCadastro({
+export function SeletorCadastro({
   opcoes,
   valor,
   onChange,

@@ -5,7 +5,8 @@ import { formatarMoeda } from "@/lib/moeda";
 import { rotuloDocumento } from "@/lib/financeiro";
 import { criarNotificacao } from "@/lib/notificacoes";
 import { LINK_CONCILIACAO } from "@/lib/conciliacao-aviso";
-import type { JustificativaMovimentacao, MovimentacaoAsaas } from "@/lib/types";
+import { ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
+import type { FormaPagamento, JustificativaMovimentacao, MovimentacaoAsaas } from "@/lib/types";
 
 // Conciliação: cada linha do extrato da conta Asaas vira um documento em
 // "movimentacoesAsaas" e fica pendente até alguém dizer o que ela é. Entradas
@@ -70,10 +71,33 @@ const ROTULOS_TIPO: Record<string, string> = {
   RECEIVABLE_ANTICIPATION_GROSS_CREDIT: "Antecipação",
   RECEIVABLE_ANTICIPATION_FEE: "Taxa de antecipação",
   RECEIVABLE_ANTICIPATION_DEBIT: "Débito de antecipação",
+  ASAAS_CARD_TRANSACTION: "Compra no cartão Asaas",
+  ASAAS_CARD_TRANSACTION_REFUND: "Compra no cartão estornada",
+  ASAAS_CARD_TRANSACTION_PARTIAL_REFUND: "Compra no cartão estornada em parte",
   DEBIT: "Débito",
   CREDIT: "Crédito",
   REVERSAL: "Estorno",
 };
+
+/**
+ * Como a saída foi paga, pelo tipo do extrato do Asaas: compra no cartão
+ * (o cartão Asaas debita do saldo na hora, por isso débito), conta paga com
+ * código de barras (boleto) ou Pix/transferência (a descrição diz qual).
+ */
+export function formaPagamentoDaMovimentacao(tipo: string, descricao = ""): FormaPagamento {
+  if (tipo.startsWith("ASAAS_CARD")) return "CARTAO_DEBITO";
+  if (tipo.startsWith("BILL_PAYMENT")) return "BOLETO";
+  if (tipo.startsWith("PIX_")) return "PIX";
+  if (tipo === "TRANSFER") return /\bpix\b/i.test(descricao) || !descricao ? "PIX" : "TRANSFERENCIA";
+  return "TRANSFERENCIA";
+}
+
+/** "Cartão de débito final 7762", "Pix", "Boleto"... para mostrar ao lado do pagamento. */
+export function rotuloPagamentoDaMovimentacao(tipo: string, descricao = ""): string {
+  const forma = ROTULOS_FORMA_PAGAMENTO[formaPagamentoDaMovimentacao(tipo, descricao)];
+  const final = descricao.match(/final\s+(\d{4})/i)?.[1];
+  return final ? `${forma} final ${final}` : forma;
+}
 
 export function rotuloTipoMovimentacao(tipo: string): string {
   return ROTULOS_TIPO[tipo] ?? "Movimentação";
@@ -155,7 +179,7 @@ export async function sincronizarExtratoAsaas({ forcar = false } = {}): Promise<
           return false;
         });
       if (criada && !justificativa) {
-        pendentes.push({ ...mov, id: item.id, status: "PENDENTE", justificativa: null, criadaEm: agora.toISOString() });
+        pendentes.push({ ...mov, id: item.id, status: "PENDENTE", justificativa: null, comprovanteUrl: "", criadaEm: agora.toISOString() });
       }
     }
   }

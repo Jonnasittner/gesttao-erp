@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeftIcon, ArrowUpRightIcon, SparklesIcon } from "lucide-react";
+import { ArrowDownLeftIcon, ArrowUpRightIcon, ReceiptIcon, SparklesIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ import { formatarDataHoraSegundos, formatarDataISO } from "@/lib/datetime";
 import { ROTULOS_CATEGORIA_CUSTO } from "@/lib/rotulos";
 import { cn } from "@/lib/utils";
 import { listarClassesDespesa } from "@/server/classes-despesa";
+import { listarCadastros } from "@/server/cadastros";
+import type { CadastroOpcao } from "@/components/financeiro/lancamento-form";
 import type { ClasseDespesa, MovimentacaoAsaas } from "@/lib/types";
 
 const FILTROS = [
@@ -28,10 +30,14 @@ export default async function ConciliacaoPage({ searchParams }: { searchParams: 
   const params = await searchParams;
   const ver = FILTROS.find((f) => f.valor === params.ver)?.valor ?? "";
   const config = configAsaas();
-  const [{ pendentes, justificadas, novasDesde }, todasClasses] = await Promise.all([
+  const [{ pendentes, justificadas, novasDesde }, todasClasses, cadastrosFornecedor] = await Promise.all([
     listarMovimentacoes(),
     listarClassesDespesa(),
+    listarCadastros("FORNECEDOR"),
   ]);
+  const fornecedores: CadastroOpcao[] = cadastrosFornecedor
+    .map((f) => ({ value: f.id, label: f.nome }))
+    .sort((a, b) => a.label.localeCompare(b.label));
   // Só as ativas viram opção no "Lançar gasto".
   const classes = todasClasses
     .filter((c) => c.ativa)
@@ -129,6 +135,7 @@ export default async function ConciliacaoPage({ searchParams }: { searchParams: 
             m={m}
             nova={m.status === "PENDENTE" && m.criadaEm > novasDesde}
             classes={classes}
+            fornecedores={fornecedores}
           />
         ))}
       </div>
@@ -136,7 +143,17 @@ export default async function ConciliacaoPage({ searchParams }: { searchParams: 
   );
 }
 
-function LinhaMovimentacao({ m, nova, classes }: { m: MovimentacaoAsaas; nova: boolean; classes: ClasseDespesa[] }) {
+function LinhaMovimentacao({
+  m,
+  nova,
+  classes,
+  fornecedores,
+}: {
+  m: MovimentacaoAsaas;
+  nova: boolean;
+  classes: ClasseDespesa[];
+  fornecedores: CadastroOpcao[];
+}) {
   const saida = m.valor < 0;
   const pendente = m.status === "PENDENTE";
   const j = m.justificativa;
@@ -188,6 +205,19 @@ function LinhaMovimentacao({ m, nova, classes }: { m: MovimentacaoAsaas; nova: b
                   </Link>
                 </>
               )}
+              {m.comprovanteUrl && (
+                <>
+                  {" · "}
+                  <a
+                    href={m.comprovanteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 font-semibold underline-offset-2 hover:underline"
+                  >
+                    <ReceiptIcon className="size-3" /> cupom
+                  </a>
+                </>
+              )}
               <span className="text-muted-foreground">
                 {" · "}
                 {j.modo === "AUTOMATICA" ? "pelo sistema" : j.usuarioNome ?? "—"}
@@ -209,7 +239,7 @@ function LinhaMovimentacao({ m, nova, classes }: { m: MovimentacaoAsaas; nova: b
           {formatarMoeda(Math.abs(m.valor))}
         </span>
         {pendente ? (
-          <JustificarMovimentacao movimentacao={m} resumo={resumoMovimentacao(m)} classes={classes} />
+          <JustificarMovimentacao movimentacao={m} resumo={resumoMovimentacao(m)} classes={classes} fornecedores={fornecedores} />
         ) : (
           <div className="flex items-center gap-1">
             <Badge

@@ -94,6 +94,11 @@ export function rotuloDocumento(numeroDocumento: number, parcela: number, totalP
   return totalParcelas > 1 ? `${documento} · ${parcela}/${totalParcelas}` : documento;
 }
 
+/** Endereço do cupom (foto/PDF) anexado ao justificar uma movimentação do Asaas. */
+export function urlComprovante(movimentacaoId: string): string {
+  return `/api/conciliacao/${movimentacaoId}/comprovante`;
+}
+
 /** "LOGÍSTICA › TRANSPORTADORA". */
 export function rotuloClasse(classeNome: string, subclasseNome: string): string {
   return [classeNome, subclasseNome].filter(Boolean).join(" › ");

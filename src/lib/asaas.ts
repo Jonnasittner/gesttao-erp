@@ -238,11 +238,14 @@ export async function sincronizarCobrancaAsaas(lancamentoId: string, pagamento?:
     const moeda = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const parcela = (l.totalParcelas ?? 1) > 1 ? ` (parcela ${l.parcela}/${l.totalParcelas})` : "";
     // Cartão parcelado: o Asaas confirma todas as parcelas juntas; uma notificação só.
-    const mensagem = p.installment
+    // Boleto/Pix parcelado também tem `installment`, mas cada parcela é paga num
+    // dia: notifica parcela por parcela, com o valor dela.
+    const cartaoParcelado = p.installment && p.billingType === "CREDIT_CARD";
+    const mensagem = cartaoParcelado
       ? `${l.clienteNome || "Cliente"} pagou ${moeda(l.valorTotal ?? p.value)} no cartão em ${l.totalParcelas}x.`
       : `${l.clienteNome || "Cliente"} pagou ${moeda(p.value)}${parcela}.`;
     await criarNotificacao({
-      chave: `asaas-pago-${p.installment ?? p.id}`,
+      chave: `asaas-pago-${cartaoParcelado ? p.installment : p.id}`,
       titulo: `${forma} pago`,
       mensagem,
       link: "/financeiro?tipo=RECEBER&status=pagos",

@@ -392,6 +392,8 @@ export interface Lancamento {
   descricao: string;
   /** Cobrança gerada no Asaas para esta parcela (só a receber). */
   asaas: CobrancaAsaas | null;
+  /** Cupom anexado ao justificar a movimentação do Asaas que pagou esta conta; "" quando não tem. */
+  comprovanteUrl: string;
   usuarioNome: string | null;
   createdAt: string;
   updatedAt: string;
@@ -449,6 +451,8 @@ export interface MovimentacaoAsaas {
   transferId: string;
   status: StatusMovimentacao;
   justificativa: JustificativaMovimentacao | null;
+  /** Foto/PDF do cupom anexado na justificativa; "" quando não tem. */
+  comprovanteUrl: string;
   /** ISO: quando o sistema viu a movimentação (para destacar as novas). */
   criadaEm: string;
 }

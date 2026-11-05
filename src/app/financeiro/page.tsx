@@ -14,7 +14,7 @@ import {
 import { LancamentoAcoes } from "@/components/financeiro/lancamento-acoes";
 import { SituacaoBadge } from "@/components/financeiro/situacao-badge";
 import { VincularAsaas } from "@/components/financeiro/vincular-asaas";
-import { ContaReceberClicavel } from "@/components/financeiro/detalhe-conta-receber";
+import { LancamentoClicavel } from "@/components/financeiro/detalhe-lancamento";
 import { configAsaas } from "@/lib/asaas";
 import { listarBancosUsados, listarLancamentos } from "@/server/financeiro";
 import { listarClassesDespesa } from "@/server/classes-despesa";
@@ -373,8 +373,8 @@ function LinhaLancamento({
   const aReceber = l.tipo === "RECEBER";
   const vencido = estaVencido(l, hoje);
   return (
-    // A receber: clicar na linha abre o pop-up com cliente, pedido e boletos.
-    <ContaReceberClicavel como="linha" lancamentoId={l.id} ativo={aReceber}>
+    // Clicar na linha abre o pop-up com todos os dados (a pagar: com o cupom).
+    <LancamentoClicavel como="linha" lancamentoId={l.id} tipo={l.tipo}>
       <TableCell>
         <Link href={`/financeiro/${l.id}`} className="whitespace-nowrap font-mono font-medium hover:underline">
           {documento}
@@ -441,7 +441,7 @@ function LinhaLancamento({
       <TableCell>
         <LancamentoAcoes lancamento={l} documento={documento} />
       </TableCell>
-    </ContaReceberClicavel>
+    </LancamentoClicavel>
   );
 }
 
@@ -469,11 +469,11 @@ function CartaoLancamento({
   ].filter(Boolean);
 
   return (
-    // A receber: tocar no cartão abre o pop-up com cliente, pedido e boletos.
-    <ContaReceberClicavel
+    // Tocar no cartão abre o pop-up com todos os dados (a pagar: com o cupom).
+    <LancamentoClicavel
       como="cartao"
       lancamentoId={l.id}
-      ativo={aReceber}
+      tipo={l.tipo}
       className={`superficie flex flex-col gap-2 border-l-4 p-3 ${aReceber ? "border-l-emerald-500" : "border-l-rose-500"}`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -510,7 +510,7 @@ function CartaoLancamento({
       <div className="border-t pt-2">
         <LancamentoAcoes lancamento={l} documento={documento} />
       </div>
-    </ContaReceberClicavel>
+    </LancamentoClicavel>
   );
 }
 

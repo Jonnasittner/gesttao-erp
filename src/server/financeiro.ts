@@ -10,6 +10,8 @@ import { buscarCadastro } from "@/server/cadastros";
 import { comResultado } from "@/lib/resultado";
 import { atualizarCobrancaAsaas, cancelarCobrancaAsaas, marcarRecebimentoManualAsaas } from "@/lib/asaas";
 import { camposDaClasse } from "@/lib/classes-despesa";
+import { urlComprovante } from "@/lib/financeiro";
+import { movimentacoesRef, rotuloPagamentoDaMovimentacao } from "@/lib/conciliacao";
 import {
   type Lancamento,
   type LancamentoInput,
@@ -61,6 +63,7 @@ function toLancamento(doc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFir
     banco: data.banco ?? "",
     descricao: data.descricao ?? "",
     asaas: data.asaas ?? null,
+    comprovanteUrl: data.comprovanteMovimentacaoId ? urlComprovante(data.comprovanteMovimentacaoId) : "",
     usuarioNome: data.usuarioNome ?? null,
     createdAt: data.createdAt?.toDate?.().toISOString() ?? "",
     updatedAt: data.updatedAt?.toDate?.().toISOString() ?? "",
@@ -154,16 +157,31 @@ export async function buscarDocumentoFinanceiro(id: string): Promise<Lancamento[
  * Tudo do pop-up da conta a receber: o cliente, o pedido (com os itens) e
  * todas as parcelas do documento da parcela `id`.
  */
-export async function detalharContaAReceber(id: string) {
+/** Tudo do pop-up da lista: parcelas, cliente, fornecedor (a pagar) e pedido. */
+export async function detalharLancamento(id: string) {
   return comResultado(async () => {
     const parcelas = await buscarDocumentoFinanceiro(id);
     if (!parcelas?.length) throw new Error("Lançamento não encontrado.");
-    const { clienteId, pedidoId } = parcelas[0];
-    const [cliente, pedido] = await Promise.all([
+    const { clienteId, fornecedorId, pedidoId } = parcelas[0];
+    const [cliente, fornecedor, pedido, movimentacoes] = await Promise.all([
       clienteId ? buscarCadastro(clienteId) : null,
+      fornecedorId ? buscarCadastro(fornecedorId) : null,
       pedidoId ? buscarPedido(pedidoId) : null,
+      // Saídas do extrato do Asaas que pagaram estas parcelas (lançadas ou vinculadas na conciliação).
+      parcelas[0].tipo === "PAGAR"
+        ? movimentacoesRef()
+            .where("justificativa.lancamentoId", "in", parcelas.slice(0, 30).map((p) => p.id))
+            .get()
+        : null,
     ]);
-    return { parcelas, cliente, pedido };
+    /** Por parcela: "Cartão de débito final 7762", "Pix"... como saiu do Asaas. */
+    const pagamentosAsaas: Record<string, string> = {};
+    for (const doc of movimentacoes?.docs ?? []) {
+      const m = doc.data();
+      if ((m.valor ?? 0) >= 0) continue;
+      pagamentosAsaas[m.justificativa.lancamentoId] = rotuloPagamentoDaMovimentacao(m.tipo ?? "", m.descricao ?? "");
+    }
+    return { parcelas, cliente, fornecedor, pedido, pagamentosAsaas };
   });
 }
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, ReceiptIcon } from "lucide-react";
 import { LancamentoForm } from "@/components/financeiro/lancamento-form";
 import { carregarOpcoesLancamento } from "@/lib/financeiro-opcoes";
 import { buscarDocumentoFinanceiro } from "@/server/financeiro";
@@ -35,6 +35,16 @@ export default async function EditarLancamentoPage({
           <p className="text-sm text-muted-foreground">
             Lançado por {base.usuarioNome} em {new Date(base.createdAt).toLocaleDateString("pt-BR")}
           </p>
+        )}
+        {base.comprovanteUrl && (
+          <a
+            href={base.comprovanteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline"
+          >
+            <ReceiptIcon className="size-4" /> Ver cupom
+          </a>
         )}
       </div>
 
