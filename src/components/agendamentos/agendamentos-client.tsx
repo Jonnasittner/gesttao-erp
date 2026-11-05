@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarClock, ChevronLeft, ChevronRight, ExternalLink, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NovoAgendamentoDialog } from "@/components/agendamentos/novo-agendamento-dialog";
 import { buscarEventosGoogle } from "@/server/google-calendar";
@@ -262,7 +263,7 @@ export function AgendamentosClient({ cadastros, emailGoogle, googleExpirado }: A
   if (!emailGoogle || googleExpirado) {
     return (
       <div className="flex flex-col gap-6 animate-fade-in">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.7rem]">Agenda de contatos</h1>
+        <PageHeader titulo="Agenda de contatos" />
         <div className="superficie p-6 text-sm text-muted-foreground">
           {googleExpirado ? "A conexão com o Google expirou." : "Nenhuma conta Google conectada."}{" "}
           <Link href="/configuracoes" className="font-medium text-primary underline-offset-4 hover:underline">
@@ -276,6 +277,7 @@ export function AgendamentosClient({ cadastros, emailGoogle, googleExpirado }: A
 
   return (
     <div className="flex flex-col gap-4 animate-fade-in">
+      <PageHeader titulo="Agenda de contatos" />
       {/* Barra no estilo do Google Calendar: Hoje  <  >  mês */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <Button variant="outline" className="rounded-full px-4" onClick={irParaHoje}>
@@ -289,7 +291,7 @@ export function AgendamentosClient({ cadastros, emailGoogle, googleExpirado }: A
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
-        <h1 className="text-xl font-normal capitalize text-foreground sm:text-[1.4rem]">{tituloMes}</h1>
+        <h2 className="text-xl font-normal capitalize text-foreground sm:text-[1.4rem]">{tituloMes}</h2>
         {carregando && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         <Button
           variant="ghost"

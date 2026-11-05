@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { LancamentoForm, type VinculoPedido } from "@/components/financeiro/lancamento-form";
 import { carregarOpcoesLancamento } from "@/lib/financeiro-opcoes";
 import { buscarPedido } from "@/server/pedidos";
@@ -28,7 +28,7 @@ export default async function NovoLancamentoPage({
   if (pedidoId && (!pedido || (converter && pedido.status === "PEDIDO"))) {
     return (
       <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold">{converter ? "Gerar pedido" : "Novo lançamento"}</h1>
+        <PageHeader titulo={converter ? "Gerar pedido" : "Novo lançamento"} />
         <p className="text-sm text-muted-foreground">
           {pedido
             ? `O orçamento ${formatarCodigo(pedido.numero)} já foi transformado em pedido.`
@@ -81,17 +81,14 @@ export default async function NovoLancamentoPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Link
-          href={pedido ? `/pedidos/${pedido.id}` : "/financeiro"}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
-        >
-          <ArrowLeftIcon className="size-3.5" />{" "}
-          {pedido ? `${pedido.status === "PEDIDO" ? "Pedido" : "Orçamento"} ${codigo}` : "Financeiro"}
-        </Link>
-        <h1 className="text-2xl font-semibold">{titulo}</h1>
-        <p className="text-sm text-muted-foreground">{descricao}</p>
-      </div>
+      <PageHeader
+        titulo={titulo}
+        descricao={descricao}
+        voltar={{
+          href: pedido ? `/pedidos/${pedido.id}` : "/financeiro",
+          label: pedido ? `${pedido.status === "PEDIDO" ? "Pedido" : "Orçamento"} ${codigo}` : "Financeiro",
+        }}
+      />
 
       <LancamentoForm {...opcoes} vinculo={vinculo} />
     </div>

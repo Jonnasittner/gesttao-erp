@@ -49,7 +49,7 @@ interface Detalhe {
  * pop-up. Cliques em janelas abertas a partir da linha (portal, fora dela no
  * DOM, mas que o React propaga até aqui) também não contam.
  */
-function cliqueEmControle(e: React.MouseEvent) {
+export function cliqueEmControle(e: React.MouseEvent) {
   const alvo = e.target as HTMLElement;
   if (!e.currentTarget.contains(alvo)) return true;
   return !!alvo.closest("a, button, input, select, textarea, label");

@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase-admin";
 import { SidebarNav, MobileNav } from "@/components/navigation";
 import { Notificacoes } from "@/components/notificacoes";
 import { MenuUsuario } from "@/components/menu-usuario";
+import { ALVO_TITULO_CELULAR, ALVO_TITULO_PC } from "@/lib/titulo-tela";
 
 // A sessão é um JWT que continua válido mesmo depois de o usuário ser
 // removido em Configurações. Ao abrir/recarregar o sistema, confere se ele
@@ -50,6 +51,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {/* Cabeçalho — celular */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/80 px-4 py-3 backdrop-blur-lg md:hidden">
         <Marca tamanho="pequena" />
+        {/* Nome da tela: preenchido pelo PageHeader de cada tela. */}
+        <div id={ALVO_TITULO_CELULAR} className="mx-2 min-w-0 flex-1" />
         <div className="flex items-center gap-1">
           <Notificacoes em="celular" />
           <MenuUsuario nome={nomeUsuario} email={email} iniciais={iniciais} />
@@ -72,8 +75,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Conteúdo */}
       <main className="fundo-conteudo flex-1 overflow-y-auto p-4 pb-28 md:px-8 md:pt-0 md:pb-10">
-        {/* Linha do topo — computador (no celular fica no cabeçalho): notificações e usuário */}
+        {/* Linha do topo — computador (no celular fica no cabeçalho): nome da tela, notificações e usuário */}
         <div className="sticky top-0 z-20 -mx-8 mb-6 hidden h-14 items-center justify-end gap-1 border-b bg-background/70 px-8 backdrop-blur-lg md:flex">
+          {/* Nome da tela, preenchido pelo PageHeader de cada tela. Centralizado
+              na faixa, sem depender da largura dos ícones à direita. */}
+          <div id={ALVO_TITULO_PC} className="absolute left-1/2 max-w-[50%] -translate-x-1/2" />
           <Notificacoes em="computador" />
           <MenuUsuario nome={nomeUsuario} email={email} iniciais={iniciais} />
         </div>

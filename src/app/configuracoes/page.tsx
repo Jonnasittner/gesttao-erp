@@ -20,7 +20,6 @@ export default async function ConfiguracoesPage() {
       <div className="flex flex-col gap-5">
         <PageHeader
           titulo="Configurações"
-          descricao="Dados da empresa usados no cabeçalho do PDF e quem pode entrar no sistema."
         />
 
         <div className="superficie p-5">

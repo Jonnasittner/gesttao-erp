@@ -58,7 +58,7 @@ export default async function ConciliacaoPage({ searchParams }: { searchParams: 
     <div className="flex flex-col gap-5">
       <PageHeader
         titulo="Conciliação"
-        descricao={`Tudo que entra e sai da conta Asaas desde ${formatarDataISO(INICIO_CONCILIACAO)}. Cada movimentação precisa de uma justificativa.`}
+        descricao={`Extrato do Asaas desde ${formatarDataISO(INICIO_CONCILIACAO)}`}
         selo={
           pendentes.length > 0 ? (
             <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">

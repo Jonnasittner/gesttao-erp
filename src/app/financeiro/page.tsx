@@ -107,13 +107,6 @@ export default async function FinanceiroPage({
     <div className="flex flex-col gap-5" data-fundo={!paginaDoTipo ? undefined : aPagar ? "pagar" : "receber"}>
       <PageHeader
         titulo={!paginaDoTipo ? "Financeiro" : aPagar ? "Contas a pagar" : "Contas a receber"}
-        descricao={
-          !paginaDoTipo
-            ? "Recebimentos de clientes e pagamentos a fornecedores."
-            : aPagar
-              ? "Pagamentos a fornecedores e custos dos pedidos."
-              : "Recebimentos de clientes."
-        }
         acoes={
           <>
             {tipo === "RECEBER" && asaasConfigurado && <VincularAsaas />}

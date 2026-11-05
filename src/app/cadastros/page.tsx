@@ -39,7 +39,6 @@ export default async function CadastrosPage({
     <div className="flex flex-col gap-5">
       <PageHeader
         titulo="Cadastros"
-        descricao="Clientes, fornecedores e contatos internos."
         acoes={<Button nativeButton={false} render={<Link href="/cadastros/novo">Novo cadastro</Link>} />}
       />
 

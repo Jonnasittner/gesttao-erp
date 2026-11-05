@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { DashboardCards } from "@/components/dashboard/dashboard-cards";
 import { listarPedidos } from "@/server/pedidos";
 import { listarProdutos } from "@/server/produtos";
@@ -28,19 +29,15 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Resumo de desempenho comercial e financeiro em tempo real. Clique em qualquer card para ver o detalhamento.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border dark:border-white/5">
-          <Clock className="h-3.5 w-3.5" />
-          <span>Sincronizado com o Banco de Dados</span>
-        </div>
-      </div>
+      <PageHeader
+        titulo="Dashboard"
+        acoes={
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border dark:border-white/5">
+            <Clock className="h-3.5 w-3.5" />
+            <span>Sincronizado com o Banco de Dados</span>
+          </div>
+        }
+      />
 
       {/* Metrics Grid Clicável com Modal de Detalhamento */}
       <DashboardCards pedidos={pedidos} produtos={produtos} cadastros={cadastros} />

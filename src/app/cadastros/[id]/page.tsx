@@ -5,6 +5,7 @@ import { EditarInteracao } from "@/components/crm/editar-interacao";
 import { InteracaoForm } from "@/components/crm/interacao-form";
 import { ReagendarInteracao } from "@/components/crm/reagendar-interacao";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,17 +53,21 @@ export default async function CadastroDetalhePage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-semibold">{cadastro.nome}</h1>
-        <Badge variant="outline" className="font-mono">
-          {formatarCodigo(cadastro.codigo)}
-        </Badge>
-        {cadastro.tipos.map((tipo) => (
-          <Badge key={tipo} variant="outline" className={CORES_TIPO_CADASTRO[tipo]}>
-            {ROTULOS_TIPO_CADASTRO[tipo]}
-          </Badge>
-        ))}
-      </div>
+      <PageHeader
+        titulo={cadastro.nome}
+        selo={
+          <span className="flex shrink-0 items-center gap-1.5">
+            <Badge variant="outline" className="font-mono">
+              {formatarCodigo(cadastro.codigo)}
+            </Badge>
+            {cadastro.tipos.map((tipo) => (
+              <Badge key={tipo} variant="outline" className={CORES_TIPO_CADASTRO[tipo]}>
+                {ROTULOS_TIPO_CADASTRO[tipo]}
+              </Badge>
+            ))}
+          </span>
+        }
+      />
 
       <Tabs defaultValue="dados">
         <TabsList>

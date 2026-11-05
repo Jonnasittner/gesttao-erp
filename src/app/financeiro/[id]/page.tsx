@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, ReceiptIcon } from "lucide-react";
+import { ReceiptIcon } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { LancamentoForm } from "@/components/financeiro/lancamento-form";
 import { carregarOpcoesLancamento } from "@/lib/financeiro-opcoes";
 import { buscarDocumentoFinanceiro } from "@/server/financeiro";
@@ -23,30 +23,27 @@ export default async function EditarLancamentoPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Link
-          href={voltarPara ?? "/financeiro"}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
-        >
-          <ArrowLeftIcon className="size-3.5" /> {voltarPara ? "Voltar ao pedido" : "Financeiro"}
-        </Link>
-        <h1 className="text-2xl font-semibold">Lançamento {formatarCodigo(base.numeroDocumento)}</h1>
-        {base.usuarioNome && (
-          <p className="text-sm text-muted-foreground">
-            Lançado por {base.usuarioNome} em {new Date(base.createdAt).toLocaleDateString("pt-BR")}
-          </p>
-        )}
-        {base.comprovanteUrl && (
-          <a
-            href={base.comprovanteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline"
-          >
-            <ReceiptIcon className="size-4" /> Ver cupom
-          </a>
-        )}
-      </div>
+      <PageHeader
+        titulo={`Lançamento ${formatarCodigo(base.numeroDocumento)}`}
+        voltar={{ href: voltarPara ?? "/financeiro", label: voltarPara ? "Voltar ao pedido" : "Financeiro" }}
+        descricao={
+          base.usuarioNome
+            ? `Lançado por ${base.usuarioNome} em ${new Date(base.createdAt).toLocaleDateString("pt-BR")}`
+            : undefined
+        }
+        acoes={
+          base.comprovanteUrl ? (
+            <a
+              href={base.comprovanteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-2 hover:underline"
+            >
+              <ReceiptIcon className="size-4" /> Ver cupom
+            </a>
+          ) : undefined
+        }
+      />
 
       <LancamentoForm {...opcoes} parcelasSalvas={parcelas} voltarPara={voltarPara} />
     </div>

@@ -21,7 +21,6 @@ export default async function LeadsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         titulo="Geração de Leads"
-        descricao="Encontra empresas da região por segmento, diz o que oferecer para cada uma e monta a apresentação pronta para o WhatsApp."
       />
 
       <BuscaLeads

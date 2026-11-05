@@ -9,7 +9,6 @@ export default async function NovoCadastroPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         titulo="Novo cadastro"
-        descricao="Cliente, fornecedor ou contato interno."
         voltar={{ href: "/cadastros", label: "Cadastros" }}
       />
       <CadastroForm sugestoesEndereco={sugestoesEndereco} />
