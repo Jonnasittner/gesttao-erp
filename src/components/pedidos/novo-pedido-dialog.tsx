@@ -25,6 +25,8 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { NovoProdutoDialog, type ProdutoOpcao } from "@/components/pedidos/novo-produto-dialog";
+import { NovoClienteDialog } from "@/components/pedidos/novo-cliente-dialog";
+import type { SugestoesEndereco } from "@/lib/sugestoes-endereco";
 import { ImagemProduto } from "@/components/produtos/imagem-produto";
 import { PreviaPdfBotao } from "@/components/pedidos/previa-pdf-botao";
 import { FotosNovoOrcamento, liberarPreviews, type FotoNova } from "@/components/pedidos/fotos-novo-orcamento";
@@ -61,11 +63,16 @@ export function NovoPedidoDialog({
   clientes,
   produtosIniciais,
   observacaoPadrao,
+  sugestoesEndereco,
 }: {
   clientes: ClienteOpcao[];
   produtosIniciais: Produto[];
   observacaoPadrao?: string;
+  /** Sugestões do formulário de novo cliente (botão "+"). */
+  sugestoesEndereco: SugestoesEndereco;
 }) {
+  // Clientes cadastrados pelo botão "+" entram na lista sem recarregar a tela.
+  const [listaClientes, setListaClientes] = useState<ClienteOpcao[]>(clientes);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -180,19 +187,34 @@ export function NovoPedidoDialog({
         <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
           <div className="flex flex-col gap-2">
             <Label>Cliente</Label>
-            <Combobox items={clientes} value={cliente} onValueChange={(v) => setCliente(v)}>
-              <ComboboxInput placeholder="Buscar cliente..." showClear />
-              <ComboboxContent>
-                <ComboboxEmpty>Nenhum cliente encontrado.</ComboboxEmpty>
-                <ComboboxList>
-                  {(item: ClienteOpcao) => (
-                    <ComboboxItem key={item.value} value={item}>
-                      {item.label}
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
+            <div className="flex items-center gap-2">
+              <Combobox items={listaClientes} value={cliente} onValueChange={(v) => setCliente(v)}>
+                <ComboboxInput placeholder="Buscar cliente..." showClear className="min-w-0 flex-1" />
+                <ComboboxContent>
+                  <ComboboxEmpty>Nenhum cliente encontrado.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(item: ClienteOpcao) => (
+                      <ComboboxItem key={item.value} value={item}>
+                        {item.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+              {/* Cliente ainda não cadastrado: cadastra aqui e já fica escolhido. */}
+              <NovoClienteDialog
+                sugestoesEndereco={sugestoesEndereco}
+                onSalvo={(novo) => {
+                  const opcao = { value: novo.id, label: novo.nome };
+                  setListaClientes((atual) =>
+                    atual.some((c) => c.value === opcao.value)
+                      ? atual
+                      : [...atual, opcao].sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+                  );
+                  setCliente(listaClientes.find((c) => c.value === opcao.value) ?? opcao);
+                }}
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">

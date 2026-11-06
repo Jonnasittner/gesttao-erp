@@ -19,8 +19,8 @@ import {
 import { TextComboboxField } from "@/components/cadastros/text-combobox-field";
 import { atualizarCadastro, buscarCadastroPorDocumento, criarCadastro } from "@/server/cadastros";
 import { consultarCnpj, type DadosCnpj } from "@/server/cnpj";
-import type { SugestoesEndereco } from "@/server/enderecos";
-import { cadastroSchema, TIPO_CADASTRO, type Cadastro, type CadastroInput } from "@/lib/types";
+import type { SugestoesEndereco } from "@/lib/sugestoes-endereco";
+import { cadastroSchema, TIPO_CADASTRO, type Cadastro, type CadastroInput, type TipoCadastro } from "@/lib/types";
 import { formatarTelefone } from "@/lib/telefone";
 import { formatarCpfCnpj } from "@/lib/documento";
 
@@ -56,14 +56,23 @@ function ModalDuplicata({
   cadastroDuplicado,
   onFechar,
   onAbrirCadastro,
+  emJanela = false,
 }: {
   cadastroDuplicado: Cadastro;
   onFechar: () => void;
   onAbrirCadastro: () => void;
+  /**
+   * Dentro de outra janela (ex.: cadastro rápido no orçamento) o aviso
+   * aparece no próprio formulário — uma camada "fixed" ficaria presa nela —
+   * e o botão principal usa o cadastro existente em vez de abri-lo.
+   */
+  emJanela?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="relative mx-4 w-full max-w-md rounded-2xl bg-card p-6 shadow-2xl ring-1 ring-foreground/10">
+    <div className={emJanela ? "" : "fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"}>
+      <div
+        className={`relative w-full rounded-2xl bg-card p-6 ring-1 ring-foreground/10 ${emJanela ? "" : "mx-4 max-w-md shadow-2xl"}`}
+      >
         {/* Ícone de alerta */}
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-yellow-500/15">
@@ -139,7 +148,7 @@ function ModalDuplicata({
             className="flex-1"
             onClick={onAbrirCadastro}
           >
-            Abrir cadastro #{String(cadastroDuplicado.codigo).padStart(4, "0")}
+            {emJanela ? "Usar este cadastro" : "Abrir cadastro"} #{String(cadastroDuplicado.codigo).padStart(4, "0")}
           </Button>
           <Button
             type="button"
@@ -158,9 +167,18 @@ function ModalDuplicata({
 export function CadastroForm({
   cadastro,
   sugestoesEndereco,
+  tiposPadrao,
+  onSalvo,
 }: {
   cadastro?: Cadastro;
   sugestoesEndereco: SugestoesEndereco;
+  /** Tipos já marcados num cadastro novo (ex.: Cliente, no cadastro rápido do orçamento). */
+  tiposPadrao?: TipoCadastro[];
+  /**
+   * Cadastro rápido dentro de outra janela: ao salvar (ou ao escolher um
+   * cadastro com o mesmo CPF/CNPJ) devolve o cadastro, sem sair da tela.
+   */
+  onSalvo?: (cadastro: { id: string; nome: string; cidade: string; estado: string }) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -329,8 +347,12 @@ export function CadastroForm({
           await atualizarCadastro(cadastro.id, parsed.data);
           toast.success("Cadastro atualizado.");
         } else {
-          const { codigo } = await criarCadastro(parsed.data);
+          const { id, codigo } = await criarCadastro(parsed.data);
           toast.success(`Cadastro criado com o código ${String(codigo).padStart(4, "0")}.`);
+          if (onSalvo) {
+            onSalvo({ id, nome: parsed.data.nome, cidade: parsed.data.cidade ?? "", estado: parsed.data.estado ?? "" });
+            return;
+          }
         }
         router.push("/cadastros");
         router.refresh();
@@ -347,9 +369,19 @@ export function CadastroForm({
       {cadastroDuplicado && (
         <ModalDuplicata
           cadastroDuplicado={cadastroDuplicado}
+          emJanela={!!onSalvo}
           onFechar={() => setCadastroDuplicado(null)}
           onAbrirCadastro={() => {
             setCadastroDuplicado(null);
+            if (onSalvo) {
+              onSalvo({
+                id: cadastroDuplicado.id,
+                nome: cadastroDuplicado.nome,
+                cidade: cadastroDuplicado.cidade ?? "",
+                estado: cadastroDuplicado.estado ?? "",
+              });
+              return;
+            }
             router.push(`/cadastros/${cadastroDuplicado.id}`);
           }}
         />
@@ -511,7 +543,7 @@ export function CadastroForm({
                 <Checkbox
                   name="tipos"
                   value={tipo}
-                  defaultChecked={cadastro?.tipos.includes(tipo) ?? false}
+                  defaultChecked={cadastro ? cadastro.tipos.includes(tipo) : (tiposPadrao?.includes(tipo) ?? false)}
                 />
                 {ROTULOS_TIPO_CADASTRO[tipo]}
               </label>

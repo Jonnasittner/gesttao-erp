@@ -22,6 +22,7 @@ import { listarCadastros } from "@/server/cadastros";
 import { buscarEmpresa } from "@/server/empresa";
 import { listarLancamentos } from "@/server/financeiro";
 import { calcularMargemPedido } from "@/lib/financeiro";
+import { montarSugestoesEndereco } from "@/lib/sugestoes-endereco";
 import type { Lancamento, Pedido } from "@/lib/types";
 import { formatarCodigo } from "@/lib/codigo";
 import { formatarMoeda } from "@/lib/moeda";
@@ -54,6 +55,10 @@ export default async function PedidosPage({
   const cidadePorCliente = new Map(
     clientes.map((c) => [c.id, [c.cidade, c.estado].filter(Boolean).join("/")]),
   );
+
+  // Sugestões (cidade, bairro, rua…) do cadastro rápido de cliente no orçamento,
+  // montadas com os mesmos clientes: também sem leitura a mais.
+  const sugestoesEndereco = montarSugestoesEndereco(clientes);
 
   /** Dados de cada pedido usados tanto na tabela quanto nos cartões. */
   const linhas = pedidos.map((pedido) => {
@@ -123,6 +128,7 @@ export default async function PedidosPage({
           clientes={opcoesClientes}
           produtosIniciais={produtos}
           observacaoPadrao={empresa?.observacaoPadraoPedido}
+          sugestoesEndereco={sugestoesEndereco}
         />
       </div>
 
