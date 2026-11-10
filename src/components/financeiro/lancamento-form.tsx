@@ -89,41 +89,71 @@ interface ParcelaForm {
   /** Data alterada à mão: não é recalculada quando muda o 1º vencimento. */
   dataEditada: boolean;
   valor: number;
+  /** Texto do campo de valor (o que a pessoa digitou, ex.: "1500."). */
+  valorTexto: string;
+  /** Valor digitado à mão: fica fixo e o restante do total é rateado nas outras. */
+  valorEditado: boolean;
   pago: boolean;
   dataPagamento: string;
   banco: string;
 }
 
 /**
+ * Rateia o total entre as parcelas: as de valor digitado à mão ficam como
+ * estão e o que sobra é dividido igualmente entre as demais
+ * (ex.: 3.000 em 3x com a 1ª em 1.500 → 1.500 + 750 + 750).
+ */
+function ratearValores(total: number, parcelas: ParcelaForm[]): ParcelaForm[] {
+  const livres = parcelas.filter((p) => !p.valorEditado).length;
+  if (livres === 0) return parcelas;
+  const fixo = parcelas.reduce((soma, p) => soma + (p.valorEditado ? p.valor : 0), 0);
+  const restante = Math.max(0, Math.round((total - fixo) * 100) / 100);
+  const valores = dividirValor(restante, livres);
+  let j = 0;
+  return parcelas.map((p) => {
+    if (p.valorEditado) return p;
+    const valor = valores[j++];
+    return { ...p, valor, valorTexto: valor.toFixed(2) };
+  });
+}
+
+/**
  * Refaz a simulação preservando o que já foi preenchido em cada posição
- * (data editada, recebido, banco). Valores sempre redistribuídos pelo total.
+ * (data editada, valor digitado, recebido, banco).
  */
 function montarParcelas(total: number, quantidade: number, primeiroVencimento: string, atuais: ParcelaForm[]) {
-  const valores = dividirValor(total > 0 ? total : 0, quantidade);
-  return Array.from({ length: quantidade }, (_, i): ParcelaForm => {
+  const parcelas = Array.from({ length: quantidade }, (_, i): ParcelaForm => {
     const atual = atuais[i];
     return {
       chave: atual?.chave ?? crypto.randomUUID(),
       id: atual?.id ?? "",
       vencimento: atual?.dataEditada ? atual.vencimento : somarMeses(primeiroVencimento, i),
       dataEditada: atual?.dataEditada ?? false,
-      valor: valores[i],
+      valor: atual?.valor ?? 0,
+      valorTexto: atual?.valorTexto ?? "",
+      // Com uma parcela só, o valor é sempre o total.
+      valorEditado: quantidade > 1 && (atual?.valorEditado ?? false),
       pago: atual?.pago ?? false,
       dataPagamento: atual?.dataPagamento || hojeISO(),
       banco: atual?.banco ?? "",
     };
   });
+  return ratearValores(total > 0 ? total : 0, parcelas);
 }
 
 function parcelasIniciais(salvas: Lancamento[] | undefined, totalInicial = 0): ParcelaForm[] {
   if (!salvas?.length) return montarParcelas(totalInicial, 1, hojeISO(), []);
   const primeiro = salvas[0].vencimento;
+  // Valor diferente do rateio igual = foi digitado à mão quando o lançamento foi criado.
+  const iguais = dividirValor(salvas.reduce((soma, p) => soma + p.valor, 0), salvas.length);
   return salvas.map((p, i) => ({
     chave: p.id,
     id: p.id,
     vencimento: p.vencimento,
     dataEditada: i > 0 && p.vencimento !== somarMeses(primeiro, i),
     valor: p.valor,
+    valorTexto: p.valor.toFixed(2),
+    valorEditado: Math.round(p.valor * 100) !== Math.round(iguais[i] * 100),
     pago: p.status === "PAGO",
     dataPagamento: p.dataPagamento || hojeISO(),
     banco: p.banco,
@@ -182,7 +212,10 @@ export function LancamentoForm({
     [cliente, pedidos]
   );
   const sugestoesBanco = useMemo(() => [...new Set([...bancosUsados, ...BANCOS_SUGERIDOS])], [bancosUsados]);
-  const somaParcelas = parcelas.reduce((soma, p) => soma + p.valor, 0);
+  const somaParcelas = Math.round(parcelas.reduce((soma, p) => soma + p.valor, 0) * 100) / 100;
+  /** Total − soma das parcelas, em reais (0 = fecha). */
+  const diferenca = Math.round(((Number(valor) || 0) - somaParcelas) * 100) / 100;
+  const algumValorEditado = parcelas.some((p) => p.valorEditado);
   // Inativas ficam de fora, menos a que o lançamento já usa.
   const classesOpcoes = classes.filter((c) => c.ativa || c.id === base?.classeId);
   const subclassesOpcoes = (classes.find((c) => c.id === classeId)?.subclasses ?? []).filter(
@@ -249,11 +282,42 @@ export function LancamentoForm({
     );
   }
 
+  /** Valor digitado numa parcela: fica fixo e o restante é rateado nas outras. */
+  function alterarValorParcela(indice: number, texto: string) {
+    const total = Number(valor) || 0;
+    setParcelas((atuais) =>
+      ratearValores(
+        total,
+        atuais.map((p, i) =>
+          i === indice ? { ...p, valor: Math.round((Number(texto) || 0) * 100) / 100, valorTexto: texto, valorEditado: true } : p
+        )
+      )
+    );
+  }
+
+  /** Volta todas as parcelas para o rateio igual. */
+  function dividirIgualmente() {
+    setParcelas((atuais) =>
+      montarParcelas(
+        Number(valor) || 0,
+        atuais.length,
+        primeiroVencimento,
+        atuais.map((p) => ({ ...p, valorEditado: false }))
+      )
+    );
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (String(parcelas.length) !== quantidade) {
       toast.error(`Informe um número de parcelas entre 1 e ${MAX_PARCELAS}.`);
+      return;
+    }
+    if (diferenca !== 0) {
+      toast.error(
+        `A soma das parcelas (${formatarMoeda(somaParcelas)}) não bate com o valor total (${formatarMoeda(Number(valor) || 0)}).`
+      );
       return;
     }
 
@@ -539,10 +603,26 @@ export function LancamentoForm({
           <h2 className="text-sm font-semibold">
             {parcelas.length > 1 ? `Simulação das ${parcelas.length} parcelas` : "Vencimento"}
           </h2>
-          <p className="text-xs text-muted-foreground">
-            Ajuste as datas se precisar. Soma: <span className="font-semibold text-foreground">{formatarMoeda(somaParcelas)}</span>
+          <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+            <span>
+              {parcelas.length > 1 ? "Ajuste datas e valores se precisar." : "Ajuste a data se precisar."} Soma:{" "}
+              <span className="font-semibold text-foreground">{formatarMoeda(somaParcelas)}</span>
+            </span>
+            {algumValorEditado && (
+              <button type="button" onClick={dividirIgualmente} className="text-primary hover:underline">
+                Dividir igualmente
+              </button>
+            )}
           </p>
         </div>
+
+        {diferenca !== 0 && parcelas.length > 1 && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            {diferenca > 0
+              ? `Faltam ${formatarMoeda(diferenca)} para fechar o total. Ajuste o valor de alguma parcela.`
+              : `As parcelas passam ${formatarMoeda(-diferenca)} do total. Ajuste o valor de alguma parcela.`}
+          </p>
+        )}
 
         <datalist id={ID_LISTA_BANCOS}>
           {sugestoesBanco.map((banco) => (
@@ -576,7 +656,21 @@ export function LancamentoForm({
                 onChange={(e) => alterarParcela(i, { vencimento: e.target.value })}
                 className="h-8"
               />
-              <span className="text-right text-sm font-medium tabular-nums">{formatarMoeda(p.valor)}</span>
+              {parcelas.length > 1 ? (
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  aria-label={`Valor da parcela ${i + 1}`}
+                  title={p.valorEditado ? "Valor fixado à mão" : "Rateado automaticamente"}
+                  value={p.valorTexto}
+                  onChange={(e) => alterarValorParcela(i, e.target.value)}
+                  className={`h-8 w-28 text-right tabular-nums sm:w-full ${p.valorEditado ? "font-semibold" : ""}`}
+                />
+              ) : (
+                <span className="text-right text-sm font-medium tabular-nums">{formatarMoeda(p.valor)}</span>
+              )}
 
               <div className="col-span-3 flex flex-wrap items-center gap-2 sm:col-span-1">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
