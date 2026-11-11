@@ -15,6 +15,16 @@ import { EditarPedidoDialog } from "@/components/pedidos/editar-pedido-dialog";
 import { ExcluirPedidoBotao } from "@/components/pedidos/excluir-pedido-botao";
 import { ConverterPedidoBotao } from "@/components/pedidos/converter-pedido-botao";
 import { PedidoClicavel } from "@/components/pedidos/pedido-clicavel";
+import {
+  BuscaInstantanea,
+  CampoBuscaInstantanea,
+  ContagemBusca,
+  ItemBuscavel,
+  LinkComBusca,
+  SeHaBusca,
+  VazioBusca,
+} from "@/components/pedidos/busca-instantanea";
+import { chaveBusca } from "@/lib/busca";
 import { PageHeader } from "@/components/ui/page-header";
 import { listarPedidos } from "@/server/pedidos";
 import { listarProdutos } from "@/server/produtos";
@@ -67,6 +77,8 @@ export default async function PedidosPage({
       pedido,
       isPedido,
       codigo: formatarCodigo(pedido.numero),
+      // Onde a busca instantânea procura (cliente e número), já normalizado.
+      chave: chaveBusca(pedido.cadastroNome, pedido.numero, formatarCodigo(pedido.numero)),
       cidade: cidadePorCliente.get(pedido.cadastroId) ?? "",
       dataHora: formatarDataHoraBrasilia(pedido.createdAt),
       // Orçamento não tem margem.
@@ -85,29 +97,37 @@ export default async function PedidosPage({
   });
 
   // Filtros aplicados em memória sobre o que já foi lido: nenhuma leitura a mais.
+  // O texto do cliente/número fica com a busca instantânea, no navegador.
   const filtradas = linhas.filter((l) => atendeBusca(l.pedido, l.cidade, busca));
-  const temBusca = CAMPOS_BUSCA.some((c) => busca[c]);
+  const temBusca = CAMPOS_BUSCA.some((c) => c !== "cliente" && busca[c]);
   // Sugestões do campo cidade: só as cidades que aparecem nos pedidos.
   const cidades = [...new Set(linhas.map((l) => l.cidade).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const vazio = linhas.length === 0 ? "Nenhum pedido ou orçamento ainda." : "Nenhum pedido ou orçamento com esses filtros.";
+  const vazio = (filtrando: boolean) =>
+    linhas.length === 0
+      ? "Nenhum pedido ou orçamento ainda."
+      : filtrando
+        ? "Nenhum pedido ou orçamento com essa busca."
+        : "Nenhum pedido ou orçamento com esses filtros.";
 
   /** Link que troca só a situação e mantém os outros filtros. */
   function linkSituacao(situacao: string) {
     const query = new URLSearchParams();
-    for (const campo of CAMPOS_BUSCA) if (campo !== "situacao" && busca[campo]) query.set(campo, busca[campo]);
+    // O texto do cliente quem acrescenta é o LinkComBusca (pode ter mudado sem recarregar).
+    for (const campo of CAMPOS_BUSCA) if (campo !== "situacao" && campo !== "cliente" && busca[campo]) query.set(campo, busca[campo]);
     if (situacao) query.set("situacao", situacao);
     const texto = query.toString();
     return texto ? `/pedidos?${texto}` : "/pedidos";
   }
 
   return (
+    <BuscaInstantanea inicial={busca.cliente} chaves={filtradas.map((l) => l.chave)}>
     <div className="flex flex-col gap-3">
       <PageHeader titulo="Pedidos e orçamentos" />
       {/* Topo enxuto: situação à esquerda, contagem e "Novo orçamento" à direita */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1 rounded-xl border bg-muted/40 p-1">
           {FILTROS_SITUACAO.map((f) => (
-            <Link
+            <LinkComBusca
               key={f.valor}
               href={linkSituacao(f.valor)}
               className={`rounded-lg px-3 py-1 text-sm font-medium transition-all ${
@@ -117,13 +137,10 @@ export default async function PedidosPage({
               }`}
             >
               {f.label}
-            </Link>
+            </LinkComBusca>
           ))}
         </div>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {temBusca ? `${filtradas.length} de ${linhas.length}` : linhas.length}{" "}
-          {linhas.length === 1 && !temBusca ? "registro" : "registros"}
-        </span>
+        <ContagemBusca total={linhas.length} filtrosServidor={temBusca} />
         <NovoPedidoDialog
           clientes={opcoesClientes}
           produtosIniciais={produtos}
@@ -144,8 +161,9 @@ export default async function PedidosPage({
         <CampoFiltro rotulo="Número">
           <Input name="numero" inputMode="numeric" defaultValue={busca.numero} placeholder="Ex.: 12" />
         </CampoFiltro>
-        <CampoFiltro rotulo="Cliente" className="sm:col-span-1 lg:col-span-2">
-          <Input name="cliente" defaultValue={busca.cliente} placeholder="Nome do cliente" />
+        {/* Filtra enquanto digita, sem apertar Filtrar. */}
+        <CampoFiltro rotulo="Buscar" className="sm:col-span-1 lg:col-span-2">
+          <CampoBuscaInstantanea placeholder="Cliente ou número" autoComplete="off" />
         </CampoFiltro>
         <CampoFiltro rotulo="Cidade">
           <Input name="cidade" list="cidades-pedidos" defaultValue={busca.cidade} placeholder="Cidade" />
@@ -163,9 +181,9 @@ export default async function PedidosPage({
         </CampoFiltro>
         {/* No PC os botões ficam na mesma linha dos campos. */}
         <div className="col-span-2 flex items-center justify-end gap-1 sm:col-span-4 lg:col-span-1">
-          {temBusca && (
+          <SeHaBusca filtrosServidor={temBusca}>
             <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/pedidos">Limpar</Link>} />
-          )}
+          </SeHaBusca>
           <Button type="submit" size="sm">
             Filtrar
           </Button>
@@ -174,14 +192,14 @@ export default async function PedidosPage({
 
       {/* Lista — celular: cartões. Tocar no cartão mostra os itens. */}
       <div className="flex flex-col gap-2 sm:hidden">
-        {filtradas.length === 0 && (
-          <p className="superficie py-10 text-center text-sm text-muted-foreground">
-            {vazio}
-          </p>
-        )}
-        {filtradas.map(({ pedido, isPedido, codigo, cidade, dataHora, margem, acoes }) => (
+        {[false, true].map((comTexto) => (
+          <VazioBusca key={String(comTexto)} comTexto={comTexto}>
+            <p className="superficie py-10 text-center text-sm text-muted-foreground">{vazio(comTexto)}</p>
+          </VazioBusca>
+        ))}
+        {filtradas.map(({ pedido, isPedido, codigo, chave, cidade, dataHora, margem, acoes }) => (
+          <ItemBuscavel key={pedido.id} chave={chave}>
           <PedidoClicavel
-            key={pedido.id}
             como="cartao"
             pedido={pedido}
             cidade={cidade}
@@ -206,6 +224,7 @@ export default async function PedidosPage({
             </div>
             <div className="border-t pt-2">{acoes}</div>
           </PedidoClicavel>
+          </ItemBuscavel>
         ))}
       </div>
 
@@ -225,16 +244,18 @@ export default async function PedidosPage({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtradas.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
-                  {vazio}
-                </TableCell>
-              </TableRow>
-            )}
-            {filtradas.map(({ pedido, isPedido, codigo, cidade, dataHora, margem, acoes }) => (
+            {[false, true].map((comTexto) => (
+              <VazioBusca key={String(comTexto)} comTexto={comTexto}>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    {vazio(comTexto)}
+                  </TableCell>
+                </TableRow>
+              </VazioBusca>
+            ))}
+            {filtradas.map(({ pedido, isPedido, codigo, chave, cidade, dataHora, margem, acoes }) => (
+              <ItemBuscavel key={pedido.id} chave={chave}>
               <PedidoClicavel
-                key={pedido.id}
                 como="linha"
                 pedido={pedido}
                 cidade={cidade}
@@ -255,11 +276,13 @@ export default async function PedidosPage({
                 <TableCell className="text-right tabular-nums">{formatarMoeda(pedido.total)}</TableCell>
                 <TableCell>{acoes}</TableCell>
               </PedidoClicavel>
+              </ItemBuscavel>
             ))}
           </TableBody>
         </Table>
       </div>
     </div>
+    </BuscaInstantanea>
   );
 }
 
@@ -391,7 +414,6 @@ function atendeBusca(pedido: Pedido, cidade: string, b: Busca): boolean {
   }
   // "12", "0012" ou "Nº 12" acham o pedido 12.
   if (b.numero && pedido.numero !== Number(b.numero)) return false;
-  if (b.cliente && !normalizar(pedido.cadastroNome).includes(normalizar(b.cliente))) return false;
   if (b.cidade && !normalizar(cidade).includes(normalizar(b.cidade))) return false;
   if (b.valorMin && pedido.total < Number(b.valorMin)) return false;
   if (b.valorMax && pedido.total > Number(b.valorMax)) return false;
