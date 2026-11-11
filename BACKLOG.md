@@ -18,15 +18,13 @@ Status: **A fazer**, **Em andamento**, **Aguardando retorno**, **Feito**.
 - A cota diária estourou em 10/11 e derrubou o sistema (erro
   `RESOURCE_EXHAUSTED`). Opções: plano pago do Firebase, cache ou paginação.
 
-## Aguardando retorno
-
-### Novo layout do dashboard
-- Prioridade: média · Área: Layout · Criado em 11/11/2026
-- Preview pronto (computador e celular), com as mesmas regras de negócio:
-  https://claude.ai/artifact/RRyhk9L3dBdg6TPU9tTjJT
-- Falta aprovar ou pedir ajustes antes de aplicar no código.
-
 ## Feito
+
+### Novo visual de todas as telas
+- Prioridade: média · Área: Layout · Criado em 11/11/2026
+- Fonte Geist corrigida (estava em Times New Roman), cartões, tabelas,
+  campos e botões mais limpos, sem mudar nada de lugar. Publicado no `main`
+  (commit `c466f8e`).
 
 ### Busca instantânea na lista de pedidos
 - Prioridade: média · Área: Pedidos · Criado em 11/11/2026
