@@ -32,9 +32,11 @@ const textoMaiusculoOpcional = textoMaiusculo.optional().or(z.literal(""));
 
 export const cadastroSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome").transform((s) => s.toUpperCase()),
+  nomeFantasia: textoMaiusculoOpcional,
   documento: textoMaiusculoOpcional,
   telefone: textoMaiusculoOpcional,
   email: z.string().trim().email("E-mail inválido").optional().or(z.literal("")),
+  cep: textoMaiusculoOpcional,
   endereco: textoMaiusculoOpcional,
   numero: textoMaiusculoOpcional,
   complemento: textoMaiusculoOpcional,

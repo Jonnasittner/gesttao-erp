@@ -19,6 +19,7 @@ import {
 import { TextComboboxField } from "@/components/cadastros/text-combobox-field";
 import { atualizarCadastro, buscarCadastroPorDocumento, criarCadastro } from "@/server/cadastros";
 import { consultarCnpj, type DadosCnpj } from "@/server/cnpj";
+import { consultarCep } from "@/server/cep";
 import type { SugestoesEndereco } from "@/lib/sugestoes-endereco";
 import { cadastroSchema, TIPO_CADASTRO, type Cadastro, type CadastroInput, type TipoCadastro } from "@/lib/types";
 import { formatarTelefone } from "@/lib/telefone";
@@ -33,6 +34,11 @@ const ROTULOS_TIPO_CADASTRO: Record<(typeof TIPO_CADASTRO)[number], string> = {
   FORNECEDOR: "Fornecedor / Prestador de serviço",
   INTERNO: "Cadastro interno",
 };
+
+/** "00000-000" enquanto digita. */
+function formatarCep(valor: string): string {
+  return valor.replace(/D/g, "").slice(0, 8).replace(/^(d{5})(d)/, "$1-$2");
+}
 
 /** Formata progressivamente: CPF (000.000.000-00) ou CNPJ (00.000.000/0000-00) */
 function formatarCpfCnpjInput(valor: string): string {
@@ -185,6 +191,10 @@ export function CadastroForm({
   const [isCheckingDoc, setIsCheckingDoc] = useState(false);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [nome, setNome] = useState(cadastro?.nome ?? "");
+  const [nomeFantasia, setNomeFantasia] = useState(cadastro?.nomeFantasia ?? "");
+  const [cep, setCep] = useState(formatarCep(cadastro?.cep ?? ""));
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const ultimoCepBuscado = useRef(formatarCep(cadastro?.cep ?? "").replace(/D/g, ""));
   const [documento, setDocumento] = useState(formatarCpfCnpj(cadastro?.documento ?? ""));
   const [cidade, setCidade] = useState(cadastro?.cidade ?? "");
   const [estado, setEstado] = useState(cadastro?.estado ?? "");
@@ -230,6 +240,8 @@ export function CadastroForm({
     };
 
     aplicar("nome", nome, dados.nome.toUpperCase(), setNome);
+    aplicar("nomeFantasia", nomeFantasia, dados.nomeFantasia.toUpperCase(), setNomeFantasia);
+    aplicar("cep", cep, formatarCep(dados.cep), setCep);
     aplicar("telefone", telefone, dados.telefone, setTelefone);
     aplicar("email", email, dados.email, setEmail);
     aplicar("endereco", endereco, dados.endereco.toUpperCase(), setEndereco);
@@ -274,6 +286,49 @@ export function CadastroForm({
     }
   }
 
+  /**
+   * Busca o endereço do CEP e preenche rua, bairro, cidade e estado (o
+   * número fica com a pessoa). O CEP manda no endereço: substitui o que havia.
+   */
+  async function buscarCep(cepBuscado: string) {
+    const digitos = cepBuscado.replace(/D/g, "");
+    if (digitos.length !== 8) return;
+    ultimoCepBuscado.current = digitos;
+    setBuscandoCep(true);
+    try {
+      const resultado = await consultarCep(digitos);
+      if (!resultado.ok) {
+        toast.error(resultado.erro);
+        return;
+      }
+      const { dados } = resultado;
+      const preenchidos: string[] = [];
+      const aplicar = (campo: string, novoValor: string, definir: (v: string) => void) => {
+        if (!novoValor) return;
+        definir(novoValor.toUpperCase());
+        preenchidos.push(campo);
+      };
+      aplicar("endereco", dados.endereco, setEndereco);
+      aplicar("bairro", dados.bairro, setBairro);
+      aplicar("cidade", dados.cidade, setCidade);
+      aplicar("estado", dados.estado, setEstado);
+      // O "complemento" do CEP é faixa de numeração ("DE 612 A 1510"), não do cliente: não entra.
+      setCamposAuto((atual) => new Set([...atual, ...preenchidos]));
+      // CEP geral da cidade (comum em cidades pequenas) não tem rua nem bairro.
+      if (!dados.endereco) toast.info("CEP geral da cidade: preencha a rua e o bairro.");
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
+
+  /** Digitou os 8 dígitos do CEP: busca o endereço sozinho. */
+  function alterarCep(valor: string) {
+    const formatado = formatarCep(valor);
+    editar("cep", setCep)(formatado);
+    const digitos = formatado.replace(/D/g, "");
+    if (digitos.length === 8 && digitos !== ultimoCepBuscado.current) void buscarCep(digitos);
+  }
+
   /** Digitou os 14 dígitos: busca sozinho (só completa o que está vazio). */
   function alterarDocumento(valor: string) {
     const formatado = formatarCpfCnpjInput(valor);
@@ -314,9 +369,11 @@ export function CadastroForm({
 
     const raw: CadastroInput = {
       nome,
+      nomeFantasia,
       documento,
       telefone,
       email,
+      cep,
       endereco,
       numero,
       complemento,
@@ -400,6 +457,16 @@ export function CadastroForm({
         {erros.nome && <p className="text-sm text-destructive">{erros.nome}</p>}
 
         <div className="flex flex-col gap-2">
+          <Label htmlFor="nomeFantasia">Nome fantasia</Label>
+          <Input
+            id="nomeFantasia"
+            value={nomeFantasia}
+            onChange={(e) => editar("nomeFantasia", setNomeFantasia)(e.target.value.toUpperCase())}
+            className={`uppercase ${classeAuto("nomeFantasia")}`}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
           <Label htmlFor="documento">CPF/CNPJ</Label>
           <div className="flex gap-2">
             <Input
@@ -456,7 +523,24 @@ export function CadastroForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          {/* CEP: com os 8 dígitos, rua, bairro, cidade e estado vêm sozinhos. */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="cep">CEP</Label>
+            <div className="relative">
+              <Input
+                id="cep"
+                value={cep}
+                onChange={(e) => alterarCep(e.target.value)}
+                placeholder="00000-000"
+                inputMode="numeric"
+                className={classeAuto("cep")}
+              />
+              {buscandoCep && (
+                <Loader2 className="absolute top-1/2 right-2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Buscando CEP" />
+              )}
+            </div>
+          </div>
           <div className="sm:col-span-2 flex flex-col gap-2">
             <Label htmlFor="endereco">Endereço</Label>
             <Input
