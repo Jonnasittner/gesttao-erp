@@ -7,7 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /* Geist (carregada no layout); antes apontava para si mesma e caía em Times New Roman. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -136,6 +137,11 @@
   }
   html {
     @apply font-sans scroll-smooth;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -228,21 +234,16 @@
 
 /* Marca: "Gesttão" e o quadradinho do logo. */
 .texto-marca {
-  background-image: linear-gradient(100deg, var(--primary), oklch(0.62 0.19 320));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--foreground);
 }
 .marca-quadrado {
-  background-image: linear-gradient(140deg, var(--primary), oklch(0.6 0.2 315));
-  box-shadow: 0 6px 16px -8px var(--primary);
+  background-color: var(--primary);
+  box-shadow: 0 4px 10px -6px var(--primary);
 }
 
-/* Fundo da área de conteúdo: um brilho suave atrás dos cartões. */
+/* Fundo da área de conteúdo: liso, os cartões brancos dão a separação. */
 .fundo-conteudo {
-  background-image:
-    radial-gradient(60rem 30rem at 12% -10%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 60%),
-    radial-gradient(45rem 26rem at 100% 0%, color-mix(in oklch, oklch(0.62 0.19 320) 7%, transparent), transparent 55%);
+  background-image: none;
 }
 
 /* Contas a pagar (vermelho) e a receber (verde): a página marca data-fundo e o

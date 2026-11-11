@@ -59,7 +59,7 @@ export default async function DashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left border-collapse">
                 <thead>
-                  <tr className="border-b bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <tr className="border-b bg-muted/30 text-xs font-medium text-muted-foreground">
                     <th className="px-4 py-3 font-semibold">Código</th>
                     <th className="px-4 py-3 font-semibold">Cliente</th>
                     <th className="px-4 py-3 font-semibold">Data</th>

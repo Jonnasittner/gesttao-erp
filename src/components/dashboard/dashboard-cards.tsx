@@ -245,11 +245,11 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
           className="group relative cursor-pointer overflow-hidden border-muted bg-card transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/5"
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+            <span className="text-sm font-medium text-muted-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
               Faturamento
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-xs font-medium text-primary">
                 Detalhar
               </span>
               <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/10 p-2 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
@@ -258,7 +258,7 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatarMoeda(faturamentoTotal)}</div>
+            <div className="text-[1.75rem] leading-tight font-bold tracking-tight tabular-nums">{formatarMoeda(faturamentoTotal)}</div>
             <div className="mt-1 flex items-center justify-between">
               <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -278,11 +278,11 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
           className="group relative cursor-pointer overflow-hidden border-muted bg-card transition-all duration-300 hover:-translate-y-1 hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/5"
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400">
+            <span className="text-sm font-medium text-muted-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400">
               Lucro Estimado
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-xs font-medium text-primary">
                 Detalhar
               </span>
               <div className="rounded-xl border border-violet-500/10 bg-violet-500/10 p-2 text-violet-500 group-hover:bg-violet-500 group-hover:text-white transition-colors">
@@ -291,7 +291,7 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatarMoeda(lucroTotalFechados)}</div>
+            <div className="text-[1.75rem] leading-tight font-bold tracking-tight tabular-nums">{formatarMoeda(lucroTotalFechados)}</div>
             <div className="mt-1 flex items-center justify-between">
               <div className="flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400">
                 <Percent className="h-3.5 w-3.5" />
@@ -315,11 +315,11 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
           className="group relative cursor-pointer overflow-hidden border-muted bg-card transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5"
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
+            <span className="text-sm font-medium text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
               Orçamentos Pendentes
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-xs font-medium text-primary">
                 Detalhar
               </span>
               <div className="rounded-xl border border-blue-500/10 bg-blue-500/10 p-2 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
@@ -328,7 +328,7 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatarMoeda(valorOrcamentosTotais)}</div>
+            <div className="text-[1.75rem] leading-tight font-bold tracking-tight tabular-nums">{formatarMoeda(valorOrcamentosTotais)}</div>
             <div className="mt-1 flex items-center justify-between">
               <div className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
                 <Clock className="h-3.5 w-3.5" />
@@ -348,11 +348,11 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
           className="group relative cursor-pointer overflow-hidden border-muted bg-card transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/5"
         >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
+            <span className="text-sm font-medium text-muted-foreground group-hover:text-cyan-600 dark:group-hover:text-cyan-400">
               Clientes & Produtos
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-xs font-medium text-primary">
                 Detalhar
               </span>
               <div className="rounded-xl border border-cyan-500/10 bg-cyan-500/10 p-2 text-cyan-500 group-hover:bg-cyan-500 group-hover:text-white transition-colors">
@@ -361,7 +361,7 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{clientesAtivos} Clientes</div>
+            <div className="text-[1.75rem] leading-tight font-bold tracking-tight tabular-nums">{clientesAtivos} Clientes</div>
             <div className="mt-1 flex items-center justify-between">
               <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                 <Package className="h-3.5 w-3.5" />
@@ -440,7 +440,7 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
-                    <tr className="border-b bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <tr className="border-b bg-muted/40 text-xs font-medium text-muted-foreground">
                       <th className="px-4 py-3">Código</th>
                       <th className="px-4 py-3">Cliente</th>
                       <th className="px-4 py-3">Produtos Vendidos</th>
@@ -527,7 +527,7 @@ export function DashboardCards({ pedidos, produtos, cadastros }: DashboardCardsP
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
-                    <tr className="border-b bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <tr className="border-b bg-muted/40 text-xs font-medium text-muted-foreground">
                       <th className="px-4 py-3">Produto</th>
                       <th className="px-4 py-3 text-right">Custo / m²</th>
                       <th className="px-4 py-3 text-right">Qtd. Vendas</th>

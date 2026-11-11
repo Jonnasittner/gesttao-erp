@@ -135,7 +135,7 @@ export function SidebarNav() {
               className="absolute top-2 left-3 h-px w-6 bg-border transition-opacity duration-200 group-hover/sidebar:opacity-0 group-has-focus-visible/sidebar:opacity-0"
               aria-hidden
             />
-            <p className={`text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase ${SO_ABERTA}`}>
+            <p className={`text-xs font-semibold text-muted-foreground ${SO_ABERTA}`}>
               {grupo.titulo}
             </p>
           </div>
