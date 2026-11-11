@@ -20,6 +20,11 @@ Status: **A fazer**, **Em andamento**, **Aguardando retorno**, **Feito**.
 
 ## Feito
 
+### Nome fantasia e CEP no cadastro de clientes
+- Prioridade: média · Área: Cadastros · Criado em 11/11/2026
+- CEP preenche rua, bairro, cidade e estado sozinho (ViaCEP). Publicado no
+  `main` (commit `8066f4f`), sem teste na tela por causa da cota do Firestore.
+
 ### Novo visual de todas as telas
 - Prioridade: média · Área: Layout · Criado em 11/11/2026
 - Fonte Geist corrigida (estava em Times New Roman), cartões, tabelas,
