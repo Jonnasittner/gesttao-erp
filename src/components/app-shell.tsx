@@ -18,15 +18,16 @@ async function VerificarAcesso({ usuarioId }: { usuarioId: string }) {
 }
 
 function Marca({ tamanho = "normal", classeTexto = "" }: { tamanho?: "normal" | "pequena"; classeTexto?: string }) {
-  const quadrado = tamanho === "normal" ? "size-9 text-base" : "size-8 text-sm";
+  const quadrado = tamanho === "normal" ? "size-9" : "size-8";
   const texto = tamanho === "normal" ? "text-xl" : "text-lg";
   return (
     <span className="flex items-center gap-2.5">
       <span
-        className={`marca-quadrado flex ${quadrado} shrink-0 items-center justify-center rounded-xl font-bold text-white`}
+        className={`marca-quadrado flex ${quadrado} shrink-0 items-center justify-center rounded-xl p-1`}
         aria-hidden
       >
-        G
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/marca-av.png" alt="" className="size-full object-contain" />
       </span>
       <span className={`texto-marca font-bold tracking-tight ${texto} ${classeTexto}`}>Gesttão</span>
     </span>

@@ -15,10 +15,11 @@ export default async function LoginPage({
       <div className="w-full max-w-sm animate-fade-in">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <span
-            className="marca-quadrado flex size-12 items-center justify-center rounded-2xl text-lg font-bold text-white"
+            className="marca-quadrado flex size-14 items-center justify-center rounded-2xl p-1.5"
             aria-hidden
           >
-            G
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/marca-av.png" alt="" className="size-full object-contain" />
           </span>
           <div>
             <h1 className="texto-marca text-3xl font-bold tracking-tight">Gesttão</h1>

@@ -237,8 +237,11 @@
   color: var(--foreground);
 }
 .marca-quadrado {
-  background-color: var(--primary);
-  box-shadow: 0 4px 10px -6px var(--primary);
+  /* Ícone AV da Bonavenitt: fundo branco fixo para as cores aparecerem
+     iguais no tema claro e no escuro. */
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: var(--sombra-suave);
 }
 
 /* Fundo da área de conteúdo: liso, os cartões brancos dão a separação. */
