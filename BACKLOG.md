@@ -20,6 +20,12 @@ Status: **A fazer**, **Em andamento**, **Aguardando retorno**, **Feito**.
 
 ## Feito
 
+### Sistema no servidor próprio (gestao.bonavenitt.com.br)
+- Prioridade: alta · Área: Infraestrutura · Criado em 11/11/2026
+- Saiu do Netlify (deploys pausados por falta de créditos) para o VPS da
+  Meu-Servidor (HestiaCP, Node.js + PM2). Banco continua no Firebase e anexos
+  no Netlify Blobs. Para publicar: `bash scripts/publicar-servidor.sh`.
+
 ### Nome fantasia e CEP no cadastro de clientes
 - Prioridade: média · Área: Cadastros · Criado em 11/11/2026
 - CEP preenche rua, bairro, cidade e estado sozinho (ViaCEP). Publicado no
