@@ -66,6 +66,9 @@ export default async function PedidosPage({
     clientes.map((c) => [c.id, [c.cidade, c.estado].filter(Boolean).join("/")]),
   );
 
+  // Telefone também vem do cadastro do cliente já lido.
+  const telefonePorCliente = new Map(clientes.map((c) => [c.id, c.telefone ?? ""]));
+
   // Sugestões (cidade, bairro, rua…) do cadastro rápido de cliente no orçamento,
   // montadas com os mesmos clientes: também sem leitura a mais.
   const sugestoesEndereco = montarSugestoesEndereco(clientes);
@@ -80,6 +83,7 @@ export default async function PedidosPage({
       // Onde a busca instantânea procura (cliente e número), já normalizado.
       chave: chaveBusca(pedido.cadastroNome, pedido.numero, formatarCodigo(pedido.numero)),
       cidade: cidadePorCliente.get(pedido.cadastroId) ?? "",
+      telefone: telefonePorCliente.get(pedido.cadastroId) ?? "",
       dataHora: formatarDataHoraBrasilia(pedido.createdAt),
       // Orçamento não tem margem.
       margem: isPedido ? (
@@ -197,7 +201,7 @@ export default async function PedidosPage({
             <p className="superficie py-10 text-center text-sm text-muted-foreground">{vazio(comTexto)}</p>
           </VazioBusca>
         ))}
-        {filtradas.map(({ pedido, isPedido, codigo, chave, cidade, dataHora, margem, acoes }) => (
+        {filtradas.map(({ pedido, isPedido, codigo, chave, cidade, telefone, dataHora, margem, acoes }) => (
           <ItemBuscavel key={pedido.id} chave={chave}>
           <PedidoClicavel
             como="cartao"
@@ -218,7 +222,9 @@ export default async function PedidosPage({
                     {pedido.cadastroNome}
                   </Link>
                 </p>
-                {cidade && <p className="text-xs text-muted-foreground">{cidade}</p>}
+                {(cidade || telefone) && (
+                  <p className="text-xs text-muted-foreground">{[cidade, telefone].filter(Boolean).join(" · ")}</p>
+                )}
               </div>
               <span className="shrink-0 font-semibold tabular-nums">{formatarMoeda(pedido.total)}</span>
             </div>
@@ -239,6 +245,7 @@ export default async function PedidosPage({
               <TableHead>Número</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Cidade</TableHead>
+              <TableHead>Telefone</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="w-0" />
             </TableRow>
@@ -247,13 +254,13 @@ export default async function PedidosPage({
             {[false, true].map((comTexto) => (
               <VazioBusca key={String(comTexto)} comTexto={comTexto}>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     {vazio(comTexto)}
                   </TableCell>
                 </TableRow>
               </VazioBusca>
             ))}
-            {filtradas.map(({ pedido, isPedido, codigo, chave, cidade, dataHora, margem, acoes }) => (
+            {filtradas.map(({ pedido, isPedido, codigo, chave, cidade, telefone, dataHora, margem, acoes }) => (
               <ItemBuscavel key={pedido.id} chave={chave}>
               <PedidoClicavel
                 como="linha"
@@ -273,6 +280,9 @@ export default async function PedidosPage({
                   </Link>
                 </TableCell>
                 <TableCell>{cidade || <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums">
+                  {telefone || <span className="text-muted-foreground">—</span>}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">{formatarMoeda(pedido.total)}</TableCell>
                 <TableCell>{acoes}</TableCell>
               </PedidoClicavel>
