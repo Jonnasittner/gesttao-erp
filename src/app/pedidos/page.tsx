@@ -274,12 +274,13 @@ export default async function PedidosPage({
                 <TableCell>
                   <span className="font-mono font-medium">{codigo}</span>
                 </TableCell>
-                <TableCell className="font-medium">
+                {/* Cliente e cidade quebram linha quando falta espaço, para as ações (lixeira) não saírem da tela. */}
+                <TableCell className="min-w-40 font-medium whitespace-normal">
                   <Link href={`/pedidos/${pedido.id}`} className="hover:underline">
                     {pedido.cadastroNome}
                   </Link>
                 </TableCell>
-                <TableCell>{cidade || <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="min-w-24 whitespace-normal">{cidade || <span className="text-muted-foreground">—</span>}</TableCell>
                 <TableCell className="whitespace-nowrap tabular-nums">
                   {telefone || <span className="text-muted-foreground">—</span>}
                 </TableCell>
